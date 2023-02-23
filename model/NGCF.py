@@ -142,14 +142,6 @@ class NGCF(BPR_base):
         # initial L and I
         self.L = self._convert_sp_mat_to_sp_tensor(self.L).to(self.device)
         self.I = torch.eye(self.num_users + self.num_items).to_sparse().to(self.device)
-        
-    def _convert_sp_mat_to_sp_tensor(self, L):
-        """ Convert sparse mat to sparse tensor.
-        """
-        coo = L.tocoo()
-        indices = torch.LongTensor([coo.row, coo.col])
-        values = torch.from_numpy(coo.data).float()
-        return torch.sparse.FloatTensor(indices, values, coo.shape)
 
     def sparse_dropout(self, L, dropout_rate, noise_shape):
         """ Node dropout.
