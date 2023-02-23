@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import scipy.sparse as sp
 import numpy as np
+from base.BPR_base import *
+
 
 class NGCFConv(nn.Module):
     def __init__(self, layer_size):
@@ -36,9 +38,9 @@ class NGCFConv(nn.Module):
         return ego_embeddings + side_embeddings
     
 
-class NGCF(nn.Module):
+class NGCF(BPR_base):
     def __init__(self, num_users, num_items, args):
-        super(NGCF, self).__init__()
+        super(BPR_base, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
@@ -109,37 +111,6 @@ class NGCF(nn.Module):
         batch_neg_items_repr = item_g_embeddings[batch_neg_item, :]
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
-    
-    def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
-        """ BPR loss function, compute BPR loss for ranking task in recommendation.
-        """
-
-        # compute positive and negative scores
-        pos_scores = torch.sum(torch.mul(user_g_embeddings, pos_item_g_embeddings), axis=1)
-        neg_scores = torch.sum(torch.mul(user_g_embeddings, neg_item_g_embeddings), axis=1)
-        
-        mf_loss = -1 * torch.mean(nn.LogSigmoid()(pos_scores - neg_scores))
-
-        # compute regularizer
-        regularizer = (torch.norm(user_g_embeddings) ** 2
-                       + torch.norm(pos_item_g_embeddings) ** 2
-                       + torch.norm(neg_item_g_embeddings) ** 2) / 2
-
-        for param in self.parameters():
-            regularizer += torch.sum(torch.square(param))
-
-        emb_loss = self.reg_coef * regularizer / self.batch_size
-        
-        batch_loss = mf_loss + emb_loss
-
-        return batch_loss
-
-    def predict_score(self, user_g_embeddings, all_item_g_embeddings):
-        """ Predict the score of a pair of user-item interaction
-        """
-        score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
-
-        return score
 
     def model_initialize(self, sparse_graph):
         """ Initialize the model, create the saprse Laplacian matrix for user-item interaction matrix.

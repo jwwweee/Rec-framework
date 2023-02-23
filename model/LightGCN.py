@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import scipy.sparse as sp
 import numpy as np
-
+from base.BPR_base import *
 
 class LightGCNConv(nn.Module):
     def __init__(self):
@@ -16,9 +15,9 @@ class LightGCNConv(nn.Module):
         return side_embeddings
         
 
-class LightGCN(nn.Module):
+class LightGCN(BPR_base):
     def __init__(self, num_users, num_items, args):
-        super(LightGCN, self).__init__()
+        super(BPR_base, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
@@ -44,7 +43,6 @@ class LightGCN(nn.Module):
             layer = LightGCNConv()
             self.conv_layers.append(layer)
 
-        self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):
         
@@ -74,32 +72,6 @@ class LightGCN(nn.Module):
         batch_neg_items_repr = item_g_embeddings[batch_neg_item,:]
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
-    
-    def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
-        """ BPR loss function, compute BPR loss for ranking task in recommendation.
-        """
-
-        # compute positive and negative scores
-        pos_scores = torch.sum(torch.mul(user_g_embeddings, pos_item_g_embeddings), axis=1)
-        neg_scores = torch.sum(torch.mul(user_g_embeddings, neg_item_g_embeddings), axis=1)
-
-        mf_loss = -1 * torch.mean(nn.LogSigmoid()(pos_scores - neg_scores))
-
-        # compute regularizer
-        regularizer = (torch.norm(user_g_embeddings) ** 2
-                       + torch.norm(pos_item_g_embeddings) ** 2
-                       + torch.norm(neg_item_g_embeddings) ** 2) / 2
-
-        emb_loss = self.reg_coef * regularizer / self.batch_size
-
-        return mf_loss + emb_loss, mf_loss, emb_loss
-
-    def predict_score(self, user_g_embeddings, all_item_g_embeddings):
-        """ Predict the score of a pair of user-item interaction
-        """
-        score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
-
-        return score
 
     def model_initialize(self, sparse_graph):
         """ Initialize the model, create the saprse Laplacian matrix for user-item interaction matrix.
@@ -131,10 +103,18 @@ class LightGCN(nn.Module):
         # initial L and I
         self.A_hat = self._convert_sp_mat_to_sp_tensor(self.A_hat).to(self.device)
         
-    def _convert_sp_mat_to_sp_tensor(self, L):
-        """ Convert sparse mat to sparse tensor.
+    def sparse_dropout(self, A_hat, dropout_rate, noise_shape):
+        """ Node dropout.
         """
-        coo = L.tocoo()
-        indices = torch.LongTensor([coo.row, coo.col])
-        values = torch.from_numpy(coo.data).float()
-        return torch.sparse.FloatTensor(indices, values, coo.shape)
+        
+        random_tensor = 1 - dropout_rate
+        random_tensor += torch.rand(noise_shape).to(A_hat.device)
+        dropout_mask = torch.floor(random_tensor).type(torch.bool)
+        indices = A_hat._indices()
+        values = A_hat._values()
+
+        indices = indices[:, dropout_mask]
+        values = values[dropout_mask]
+
+        out = torch.sparse.FloatTensor(indices, values, A_hat.shape).to(A_hat.device)
+        return out * (1. / (1 - dropout_rate))
