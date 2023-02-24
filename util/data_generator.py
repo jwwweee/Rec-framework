@@ -4,7 +4,6 @@ import scipy.sparse as sp
 
 class Data(object):
     def __init__(self, data_path: str, name_data: str, is_social: bool=False, social_weight: bool=False, interact_weight: bool=False) -> None:
-        
     
         interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
         
