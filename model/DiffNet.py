@@ -95,3 +95,26 @@ class DiffNet(BPR_MF):
         self.R = self._convert_sp_mat_to_sp_tensor(self.R).to(self.device)
         self.S = self._convert_sp_mat_to_sp_tensor(self.S).to(self.device)
 
+    def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
+        """ BPR loss function, compute BPR loss for ranking task in recommendation.
+        """
+
+        # compute positive and negative scores
+        pos_scores = torch.sum(torch.mul(user_g_embeddings, pos_item_g_embeddings), axis=1)
+        neg_scores = torch.sum(torch.mul(user_g_embeddings, neg_item_g_embeddings), axis=1)
+        
+        mf_loss = -1 * torch.mean(nn.LogSigmoid()(pos_scores - neg_scores))
+
+        # compute regularizer
+        regularizer = (torch.norm(user_g_embeddings) ** 2
+                       + torch.norm(pos_item_g_embeddings) ** 2
+                       + torch.norm(neg_item_g_embeddings) ** 2) / 2
+
+        for param in self.parameters():
+            regularizer += torch.sum(torch.square(param))
+
+        emb_loss = self.reg_coef * regularizer / self.batch_size
+        
+        batch_loss = mf_loss + emb_loss
+
+        return batch_loss

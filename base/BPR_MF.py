@@ -7,31 +7,6 @@ class BPR_MF(nn.Module):
         
         self.batch_size = args.batch_size
         self.reg_coef = eval(args.regs)[0]
-        
-    
-    def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
-        """ BPR loss function, compute BPR loss for ranking task in recommendation.
-        """
-
-        # compute positive and negative scores
-        pos_scores = torch.sum(torch.mul(user_g_embeddings, pos_item_g_embeddings), axis=1)
-        neg_scores = torch.sum(torch.mul(user_g_embeddings, neg_item_g_embeddings), axis=1)
-        
-        mf_loss = -1 * torch.mean(nn.LogSigmoid()(pos_scores - neg_scores))
-
-        # compute regularizer
-        regularizer = (torch.norm(user_g_embeddings) ** 2
-                       + torch.norm(pos_item_g_embeddings) ** 2
-                       + torch.norm(neg_item_g_embeddings) ** 2) / 2
-
-        for param in self.parameters():
-            regularizer += torch.sum(torch.square(param))
-
-        emb_loss = self.reg_coef * regularizer / self.batch_size
-        
-        batch_loss = mf_loss + emb_loss
-
-        return batch_loss
 
     def predict_score(self, user_g_embeddings, all_item_g_embeddings):
         """ Predict the score of a pair of user-item interaction
