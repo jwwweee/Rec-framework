@@ -71,34 +71,23 @@ class Data(object):
 
         return self.interact_weight
 
-    def get_sparse_graph(self, graph: list, weight: list, graph_type: str, is_weighted_graph: bool=False):
+    def get_sparse_graph(self, graph: list, weight: list=[], is_weighted_graph: bool=False):
         """ Convert graph to torch sparse graph
 
             Params:
                 graph: original social or interact graph list
-                graph_type: "social" or "interact"
                 weight: weight of graph edge list
                 is_weighted_graph: a bool that whether the graph is weighted
             
             Return: sparse_graph: torch sparse graph
 
         """
-
-        # if is_weighted_graph:
-        #     if graph_type == 'social':
-        #         value = self.social_weight
-        #     elif graph_type == 'interact':
-        #         value = self.interact_weight
-        # else: 
-        #     value = [1]*graph.shape[1]
-
-        # interaction adjacent matrices
         sparse_graph = sp.dok_matrix((self.num_users, self.num_items), dtype=np.float32)
 
         if is_weighted_graph:
             ind = 0
             for row in graph:
-                sparse_graph[row[0], row[1]] = self.social_weight[ind]
+                sparse_graph[row[0], row[1]] = weight[ind]
                 ind += 1
         else:
             for row in graph:

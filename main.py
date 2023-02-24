@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from model.NGCF import NGCF
+from model.LightGCN import LightGCN
 import warnings
 from util.data_generator import *
 warnings.filterwarnings('ignore')
@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     args.device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else "cpu")
 
-    data = Data(data_path='/data/', name_data=args.dataset) # get data
+    data = Data(data_path='data/', name_data=args.dataset) # get data
     
     train_set, valid_set, test_set = data.split_dataset()
     
@@ -25,22 +25,22 @@ if __name__ == '__main__':
 
     data.print_statistics()
     
-    graph_path = '/data/' + args.dataset + '/sparse_graph.npz'
+    graph_path = 'data/' + args.dataset + '/sparse_graph.npz'
 
     if os.path.exists(graph_path):
         sparse_graph = sp.load_npz(graph_path)
     else:
-        graph = data.get_interact_graph()
-        sparse_graph = data.get_sparse_graph(graph, weight=[], graph_type='interact')
-        sp.save_npz(graph_path, sparse_graph)
+        interact_graph = data.get_interact_graph()
+        sparse_interact_graph = data.get_sparse_graph(interact_graph, graph_type='interact')
+        sp.save_npz(graph_path, sparse_interact_graph)
 
 
     # initial model
-    model = NGCF(data.num_users,
+    model = LightGCN(data.num_users,
                  data.num_items,
                  args)
 
-    model.model_initialize(sparse_graph)
+    model.initialize_graph(sparse_graph)
     
     train_start_time = time()
     

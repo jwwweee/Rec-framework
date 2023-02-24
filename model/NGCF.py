@@ -16,9 +16,6 @@ class NGCFConv(nn.Module):
         self.W1 = nn.Linear(layer_size, layer_size, bias=True)
         self.W2 = nn.Linear(layer_size, layer_size, bias=True)
 
-        # leaky relu
-        self.leaky_relu = nn.LeakyReLU(0.2)
-
         # initialize weights
         torch.nn.init.xavier_uniform_(self.W1.weight)
         torch.nn.init.constant_(self.W1.bias, 0)
@@ -44,8 +41,8 @@ class NGCF(BPR_MF):
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(args.layer_size)
-        self.device = args.device
+        self.num_layer = len(eval(args.layer_size))
+        
         self.embed_size = args.embed_size
         self.layer_size = eval(args.layer_size)
 
@@ -67,12 +64,14 @@ class NGCF(BPR_MF):
         for i in range(self.num_layer):
             layer = NGCFConv(self.layer_size[i])
             self.conv_layers.append(layer)
-        
+
+        self.device = args.device
         self = self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):
         """ Model feedforward procedure
         """
+        # ----------------------- feed-forward process -----------------------
         # node dropout
         self.L = self.sparse_dropout(self.L,
                                     self.node_dropout,
@@ -96,6 +95,7 @@ class NGCF(BPR_MF):
 
             concat_g_embeddings = torch.cat([concat_g_embeddings, E.clone()], dim=1)
         
+        # ----------------------- retrieving target users and items -----------------------
         # separate users and items
         user_g_embeddings, item_g_embeddings = concat_g_embeddings[:self.num_users], concat_g_embeddings[self.num_users:]
 
@@ -110,8 +110,8 @@ class NGCF(BPR_MF):
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
 
-    def model_initialize(self, sparse_graph):
-        """ Initialize the model, create the saprse Laplacian matrix for user-item interaction matrix.
+    def initialize_graph(self, sparse_interact_graph):
+        """ Initialize the graph, create the saprse Laplacian matrix for user-item interaction matrix.
             
             interact_matrix size: interaction num x 2
 
@@ -120,7 +120,7 @@ class NGCF(BPR_MF):
         # interaction adjacent matrices
         adj_mat = sp.dok_matrix((self.num_users + self.num_items, self.num_users + self.num_items), dtype=np.float32)
         adj_mat = adj_mat.tolil()
-        R = sparse_graph.tolil()
+        R = sparse_interact_graph.tolil()
 
         # construct A in Eq.(8)
         adj_mat[:self.num_users, self.num_users:] = R

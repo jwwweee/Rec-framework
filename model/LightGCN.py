@@ -21,8 +21,7 @@ class LightGCN(BPR_MF):
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(args.layer_size)
-        self.device = args.device
+        self.num_layer = len(eval(args.layer_size))
         self.embed_size = args.embed_size
 
         # initialize the parameters of embeddings
@@ -41,9 +40,13 @@ class LightGCN(BPR_MF):
             layer = LightGCNConv()
             self.conv_layers.append(layer)
 
+        self.device = args.device
+        self = self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):
-        
+        """ Model feedforward procedure
+        """
+        # ----------------------- feed-forward process -----------------------
         # initial concatenated embeddings (users and items)
         E = torch.cat([self.parameter_list['embed_user'], self.parameter_list['embed_item']], dim=0)
         
@@ -57,6 +60,7 @@ class LightGCN(BPR_MF):
         # average the sum of layers (a_k=1/K+1)
         out_embeddings = torch.div(sum_g_embeddings, (self.num_layer + 1))
         
+        # ----------------------- retrieving target users and items -----------------------
         # separate users and items
         user_g_embeddings, item_g_embeddings = out_embeddings[:self.num_users], out_embeddings[self.num_users:]
 
@@ -71,8 +75,8 @@ class LightGCN(BPR_MF):
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
 
-    def model_initialize(self, sparse_graph):
-        """ Initialize the model, create the saprse Laplacian matrix for user-item interaction matrix.
+    def initialize_graph(self, sparse_interact_graph):
+        """ Initialize the graph, create the saprse Laplacian matrix for user-item interaction matrix.
             
             interact_matrix size: interaction num x 2
 
@@ -81,14 +85,12 @@ class LightGCN(BPR_MF):
         # interaction adjacent matrices
         adj_mat = sp.dok_matrix((self.num_users + self.num_items, self.num_users + self.num_items), dtype=np.float32)
         adj_mat = adj_mat.tolil()
-        R = sparse_graph.tolil()
+        R = sparse_interact_graph.tolil()
 
-        # construct A in Eq.(8)
         adj_mat[:self.num_users, self.num_users:] = R
         adj_mat[self.num_users:, :self.num_users] = R.T
         adj_mat = adj_mat.todok()
         
-        # compute L
         rowsum = np.array(adj_mat.sum(1))
 
         d_inv_sqrt = np.power(rowsum, -0.5).flatten()
@@ -98,7 +100,6 @@ class LightGCN(BPR_MF):
         bi_lap = d_mat_inv_sqrt.dot(adj_mat).dot(d_mat_inv_sqrt)
         self.A_hat = bi_lap.tocoo()
 
-        # initial L and I
         self.A_hat = self._convert_sp_mat_to_sp_tensor(self.A_hat).to(self.device)
         
     def sparse_dropout(self, A_hat, dropout_rate, noise_shape):

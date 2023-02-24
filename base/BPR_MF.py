@@ -7,8 +7,7 @@ class BPR_MF(nn.Module):
         
         self.batch_size = args.batch_size
         self.reg_coef = eval(args.regs)[0]
-
-        self = self.to(self.device)
+        
     
     def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
         """ BPR loss function, compute BPR loss for ranking task in recommendation.
