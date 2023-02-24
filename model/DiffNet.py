@@ -1,29 +1,55 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import scipy.sparse as sp
 import numpy as np
 from base.BPR_MF import *
 
-class LightGCNConv(nn.Module):
-    def __init__(self):
-        super(LightGCNConv, self).__init__()
 
-    def forward(self, A_hat, E):
-        # left side of the equation
-        side_embeddings = torch.matmul(A_hat, E)
-
-        return side_embeddings
+class NGCFConv(nn.Module):
+    def __init__(self, layer_size):
+        super(NGCFConv, self).__init__()
         
+        self.layer_size = layer_size
 
-class LightGCN(BPR_MF):
+        # weights for different types of messages
+        self.W1 = nn.Linear(layer_size, layer_size, bias=True)
+        self.W2 = nn.Linear(layer_size, layer_size, bias=True)
+
+        # leaky relu
+        self.leaky_relu = nn.LeakyReLU(0.2)
+
+        # initialize weights
+        torch.nn.init.xavier_uniform_(self.W1.weight)
+        torch.nn.init.constant_(self.W1.bias, 0)
+        torch.nn.init.xavier_uniform_(self.W2.weight)
+        torch.nn.init.constant_(self.W2.bias, 0)
+
+    def forward(self, L, I, E):
+        
+        # left side of the equation
+        ego_messages = torch.matmul((L + I), E)
+        ego_embeddings = self.W1(ego_messages)
+
+        # right side of the equation
+        side_messages = torch.matmul(L, E)
+        side_embeddings = self.W2(side_messages)
+
+        return ego_embeddings + side_embeddings
+    
+
+class DiffNet(BPR_MF):
     def __init__(self, num_users, num_items, args):
         super().__init__(args)
         
         self.num_users = num_users
         self.num_items = num_items
         self.num_layer = len(args.layer_size)
+        
         self.device = args.device
         self.embed_size = args.embed_size
+        self.layer_size = eval(args.layer_size)
+        
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -38,36 +64,48 @@ class LightGCN(BPR_MF):
 
         self.conv_layers = nn.ModuleList()
         for i in range(self.num_layer):
-            layer = LightGCNConv()
+            layer = NGCFConv(self.layer_size[i])
             self.conv_layers.append(layer)
-
+        
+        self = self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):
-        
+        """ Model feedforward procedure
+        """
+        # node dropout
+        self.L = self.sparse_dropout(self.L,
+                                    self.node_dropout,
+                                    self.L._nnz()) if self.node_dropout else self.L
+
         # initial concatenated embeddings (users and items)
         E = torch.cat([self.parameter_list['embed_user'], self.parameter_list['embed_item']], dim=0)
         
         # message propagation for each layer (both user and item phases)
-        sum_g_embeddings = E.clone()
+        concat_g_embeddings = E.clone()
+
         for i in range(self.num_layer):
-            E = self.conv_layers[i](self.A_hat, E) 
-            
-            sum_g_embeddings = sum_g_embeddings + E.clone() # layer combination
-        
-        # average the sum of layers (a_k=1/K+1)
-        out_embeddings = torch.div(sum_g_embeddings, (self.num_layer + 1))
+            E = self.conv_layers[i](self.L, self.I, E) 
+            E = F.leaky_relu(E, negative_slope=0.2)
+
+            # message dropout
+            if self.message_dropout:
+              E = nn.Dropout(self.message_dropout[i])(E)
+
+              E = F.normalize(E, dim=1, p=2)
+
+            concat_g_embeddings = torch.cat([concat_g_embeddings, E.clone()], dim=1)
         
         # separate users and items
-        user_g_embeddings, item_g_embeddings = out_embeddings[:self.num_users], out_embeddings[self.num_users:]
+        user_g_embeddings, item_g_embeddings = concat_g_embeddings[:self.num_users], concat_g_embeddings[self.num_users:]
 
         # retrieve batched users and items
-        batch_user_g_embeddings = user_g_embeddings[batch_user,:]
+        batch_user_g_embeddings = user_g_embeddings[batch_user, :]
 
         # get positive items representations
-        batch_pos_items_repr = item_g_embeddings[batch_pos_item,:]
+        batch_pos_items_repr = item_g_embeddings[batch_pos_item, :]
 
         # get negative items representations
-        batch_neg_items_repr = item_g_embeddings[batch_neg_item,:]
+        batch_neg_items_repr = item_g_embeddings[batch_neg_item, :]
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
 
@@ -96,23 +134,9 @@ class LightGCN(BPR_MF):
         d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
 
         bi_lap = d_mat_inv_sqrt.dot(adj_mat).dot(d_mat_inv_sqrt)
-        self.A_hat = bi_lap.tocoo()
+        self.L = bi_lap.tocoo()
 
         # initial L and I
-        self.A_hat = self._convert_sp_mat_to_sp_tensor(self.A_hat).to(self.device)
-        
-    def sparse_dropout(self, A_hat, dropout_rate, noise_shape):
-        """ Node dropout.
-        """
-        
-        random_tensor = 1 - dropout_rate
-        random_tensor += torch.rand(noise_shape).to(A_hat.device)
-        dropout_mask = torch.floor(random_tensor).type(torch.bool)
-        indices = A_hat._indices()
-        values = A_hat._values()
+        self.L = self._convert_sp_mat_to_sp_tensor(self.L).to(self.device)
+        self.I = torch.eye(self.num_users + self.num_items).to_sparse().to(self.device)
 
-        indices = indices[:, dropout_mask]
-        values = values[dropout_mask]
-
-        out = torch.sparse.FloatTensor(indices, values, A_hat.shape).to(A_hat.device)
-        return out * (1. / (1 - dropout_rate))

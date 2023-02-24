@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import scipy.sparse as sp
 import numpy as np
-from base.BPR_base import *
+from base.BPR_MF import *
 
 
 class NGCFConv(nn.Module):
@@ -38,18 +38,16 @@ class NGCFConv(nn.Module):
         return ego_embeddings + side_embeddings
     
 
-class NGCF(BPR_base):
+class NGCF(BPR_MF):
     def __init__(self, num_users, num_items, args):
-        super(BPR_base, self).__init__()
+        super().__init__(args)
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = 3
-        self.batch_size = args.batch_size
+        self.num_layer = len(args.layer_size)
         self.device = args.device
         self.embed_size = args.embed_size
         self.layer_size = eval(args.layer_size)
-        self.reg_coef = eval(args.regs)[0]
 
         self.message_dropout = eval(args.mess_dropout)
         self.node_dropout = eval(args.node_dropout)[0] 
