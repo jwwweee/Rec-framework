@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
         for idx in range(num_train_batch):
             t1 = time()
-            users, pos_items, neg_items = data.batch_sampling(train_set_dict, args.batch_size)
+            users, pos_items, neg_items = data.pair_data_sampling(train_set_dict, args.batch_size)
             user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = model(users,
                                                                            pos_items,
                                                                            neg_items)

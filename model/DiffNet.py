@@ -29,6 +29,8 @@ class DiffNet(BPR_MF):
                                                  self.embed_size)))
         })
         
+        self.activation = nn.Sigmoid()
+
         self.conv_layers = nn.ModuleList()
         for i in range(self.num_layer):
             self.s_layer = nn.Linear(self.layer_size[i], self.layer_size[i], bias=True)
@@ -46,8 +48,8 @@ class DiffNet(BPR_MF):
         # ----------------------- feed-forward process -----------------------
         # initial user and item embeddings (users and items)
 
-        U = self.parameter_list['embed_user']
-        V = self.parameter_list['embed_item']
+        U = self.activation(self.parameter_list['embed_user'])
+        V = self.activation(self.parameter_list['embed_item'])
         
         # message propagation for each layer (user social phase)
         for i in range(self.num_layer):

@@ -133,7 +133,7 @@ class Data(object):
 
         return train_set, valid_set, test_set
     
-    def batch_sampling(self, train_set_dict: list, batch_size: int):
+    def pair_data_sampling(self, train_set_dict: list, batch_size: int):
         """ Sample a batch of dataset.
 
             Params:
