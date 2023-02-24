@@ -41,7 +41,6 @@ if __name__ == '__main__':
         social_graph = data.get_social_graph()
         sparse_social_graph = data.get_sparse_graph(social_graph, graph_type='social')
         sp.save_npz(social_graph_path, sparse_social_graph)
-    
 
     # initial model
     model = DiffNet(data.num_users,

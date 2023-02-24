@@ -4,7 +4,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run.")
     parser.add_argument('--dataset', nargs='?', default='ciao',
                         help='Choose a dataset from {ciao, epinions, gowalla}')
-    parser.add_argument('--epoch', type=int, default=400,
+    parser.add_argument('--epoch', type=int, default=1000,
                         help='Number of epoch.')
     parser.add_argument('--embed_size', type=int, default=64,
                         help='Embedding size.')

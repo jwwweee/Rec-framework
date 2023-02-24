@@ -31,11 +31,11 @@ class DiffNet(BPR_MF):
         
         self.conv_layers = nn.ModuleList()
         for i in range(self.num_layer):
-            self.Pool = nn.Linear(self.layer_size[i], self.layer_size[i], bias=True)
-            self.conv_layers.append(self.Pool)
+            self.s_layer = nn.Linear(self.layer_size[i], self.layer_size[i], bias=True)
+            self.conv_layers.append(self.s_layer)
         
-        torch.nn.init.xavier_uniform_(self.Pool.weight)
-        torch.nn.init.constant_(self.Pool.bias, 0)
+        torch.nn.init.xavier_uniform_(self.s_layer.weight)
+        torch.nn.init.constant_(self.s_layer.bias, 0)
 
         self.device = args.device
         self = self.to(self.device)
@@ -51,8 +51,8 @@ class DiffNet(BPR_MF):
         
         # message propagation for each layer (user social phase)
         for i in range(self.num_layer):
-            U = torch.matmul(self.S, U)
-            U = self.Pool(U)
+            U = torch.matmul(self.S, U) + U
+            U = self.conv_layers[i](U)
             U = F.relu(U)
 
         user_g_embeddings = U + torch.matmul(self.R, V)
@@ -76,12 +76,16 @@ class DiffNet(BPR_MF):
 
         # normalization
         interact_D = np.array(R.sum(1))
-        interact_D = sp.diags(np.power(interact_D, -1).flatten())
+        interact_D = np.power(interact_D, -1).flatten()
+        interact_D[np.isinf(interact_D)] = 0.
+        interact_D = sp.diags(interact_D)
         norm_R = interact_D.dot(R)
 
         social_D = np.array(S.sum(1))
-        social_D = sp.diags(np.power(social_D, -1).flatten())
-        norm_S = interact_D.dot(S)
+        social_D = np.power(social_D, -1).flatten()
+        social_D[np.isinf(social_D)] = 0.
+        social_D = sp.diags(social_D)
+        norm_S = social_D.dot(S)
 
         self.R = norm_R.tocoo()
         self.S = norm_S.tocoo()
