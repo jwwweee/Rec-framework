@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from model.LightGCN import LightGCN
+from model.DiffNet import DiffNet
 import warnings
 from util.data_generator import *
 warnings.filterwarnings('ignore')
@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     args.device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else "cpu")
 
-    data = Data(data_path='data/', name_data=args.dataset) # get data
+    data = Data(data_path='data/', name_data=args.dataset, is_social=True) # get data
     
     train_set, valid_set, test_set = data.split_dataset()
     
@@ -25,22 +25,30 @@ if __name__ == '__main__':
 
     data.print_statistics()
     
-    graph_path = 'data/' + args.dataset + '/sparse_graph.npz'
+    interact_graph_path = 'data/' + args.dataset + '/interact_sparse_graph.npz'
+    social_graph_path = 'data/' + args.dataset + '/social_sparse_graph.npz'
 
-    if os.path.exists(graph_path):
-        sparse_graph = sp.load_npz(graph_path)
+    if os.path.exists(interact_graph_path):
+        sparse_interact_graph = sp.load_npz(interact_graph_path)
     else:
         interact_graph = data.get_interact_graph()
         sparse_interact_graph = data.get_sparse_graph(interact_graph, graph_type='interact')
-        sp.save_npz(graph_path, sparse_interact_graph)
+        sp.save_npz(interact_graph_path, sparse_interact_graph)
 
+    if os.path.exists(social_graph_path):
+        sparse_social_graph = sp.load_npz(social_graph_path)
+    else:
+        social_graph = data.get_social_graph()
+        sparse_social_graph = data.get_sparse_graph(social_graph, graph_type='social')
+        sp.save_npz(social_graph_path, sparse_social_graph)
+    
 
     # initial model
-    model = LightGCN(data.num_users,
+    model = DiffNet(data.num_users,
                  data.num_items,
                  args)
 
-    model.initialize_graph(sparse_graph)
+    model.initialize_graph(sparse_interact_graph, sparse_social_graph)
     
     train_start_time = time()
     
@@ -49,7 +57,6 @@ if __name__ == '__main__':
     print('Start training...')
 
     # ----------------- Train -----------------
-
     # initialize optimizer
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     

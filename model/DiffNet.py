@@ -34,8 +34,8 @@ class DiffNet(BPR_MF):
             self.Pool = nn.Linear(self.layer_size[i], self.layer_size[i], bias=True)
             self.conv_layers.append(self.Pool)
         
-        torch.nn.init.xavier_uniform_(self.W1.weight)
-        torch.nn.init.constant_(self.W1.bias, 0)
+        torch.nn.init.xavier_uniform_(self.Pool.weight)
+        torch.nn.init.constant_(self.Pool.bias, 0)
 
         self.device = args.device
         self = self.to(self.device)
@@ -70,21 +70,17 @@ class DiffNet(BPR_MF):
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
 
-    def initialize_graph(self, sparse_interact_graph, sparse_social_graph):
+    def initialize_graph(self, R, S):
         """ Initialize the graphs, create the saprse Laplacian matrix for user-item interaction graph and social graph.
         """
 
-        # interaction adjacent matrices
-        R = sparse_interact_graph.tolil()
-        S = sparse_social_graph.tolil()
-
         # normalization
         interact_D = np.array(R.sum(1))
-        interact_D = np.diag(np.power(interact_D, -1))
+        interact_D = sp.diags(np.power(interact_D, -1).flatten())
         norm_R = interact_D.dot(R)
 
         social_D = np.array(S.sum(1))
-        social_D = np.diag(np.power(social_D, -1))
+        social_D = sp.diags(np.power(social_D, -1).flatten())
         norm_S = interact_D.dot(S)
 
         self.R = norm_R.tocoo()

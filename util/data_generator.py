@@ -25,7 +25,7 @@ class Data(object):
         if is_social:
             social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter=',')
             
-            self.social_graph = social_graph - 1
+            self.social_graph = social_graph[:, :2] - 1
 
             if social_weight:
                 self.social_weight = social_graph[:, 3]
@@ -71,18 +71,22 @@ class Data(object):
 
         return self.interact_weight
 
-    def get_sparse_graph(self, graph: list, weight: list=[], is_weighted_graph: bool=False):
+    def get_sparse_graph(self, graph: list, graph_type: str, weight: list=[], is_weighted_graph: bool=False):
         """ Convert graph to torch sparse graph
 
             Params:
                 graph: original social or interact graph list
+                graph_type: 'interact' or 'social'
                 weight: weight of graph edge list
                 is_weighted_graph: a bool that whether the graph is weighted
             
             Return: sparse_graph: torch sparse graph
 
         """
-        sparse_graph = sp.dok_matrix((self.num_users, self.num_items), dtype=np.float32)
+        if graph_type == 'social':
+            sparse_graph = sp.dok_matrix((self.num_users, self.num_users), dtype=np.float32)
+        else:
+            sparse_graph = sp.dok_matrix((self.num_users, self.num_items), dtype=np.float32)
 
         if is_weighted_graph:
             ind = 0
