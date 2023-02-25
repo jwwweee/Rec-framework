@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import scipy.sparse as sp
 import numpy as np
-from base.BPR_MF import *
 
 class LightGCNConv(nn.Module):
     def __init__(self):
@@ -15,14 +14,16 @@ class LightGCNConv(nn.Module):
         return side_embeddings
         
 
-class LightGCN(BPR_MF):
+class LightGCN(nn.Module):
     def __init__(self, num_users, num_items, args):
-        super().__init__(args)
+        super(LightGCN, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
         self.num_layer = len(eval(args.layer_size))
         self.embed_size = args.embed_size
+        self.batch_size = args.batch_size
+        self.reg_coef = eval(args.regs)[0]
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -138,3 +139,18 @@ class LightGCN(BPR_MF):
         batch_loss = mf_loss + emb_loss
 
         return batch_loss
+    
+    def predict_score(self, user_g_embeddings, all_item_g_embeddings):
+        """ Predict the score of a pair of user-item interaction
+        """
+        score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
+
+        return score
+        
+    def _convert_sp_mat_to_sp_tensor(self, L):
+        """ Convert sparse mat to sparse tensor.
+        """
+        coo = L.tocoo()
+        indices = torch.LongTensor([coo.row, coo.col])
+        values = torch.from_numpy(coo.data).float()
+        return torch.sparse.FloatTensor(indices, values, coo.shape)

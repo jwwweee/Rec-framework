@@ -167,12 +167,12 @@ class Data(object):
             positive_item = random.choice(interacted_items)
             
             positive_items.append(positive_item)
-        
 
             # sampling a negative item for each user            
             while True:
-
-                negative_item = np.random.randint(low=0, high=self.num_items,size=1)[0]
+                # sample 1 neg-item from all items, if not exist in train set, 
+                # to the train set, the item is negative
+                negative_item = np.random.randint(low=0, high=self.num_items, size=1)[0]
 
                 if (negative_item not in interacted_items):
                     negative_items.append(negative_item)

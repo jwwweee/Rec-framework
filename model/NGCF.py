@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import scipy.sparse as sp
 import numpy as np
-from base.BPR_MF import *
 
 
 class NGCFConv(nn.Module):
@@ -35,9 +34,9 @@ class NGCFConv(nn.Module):
         return ego_embeddings + side_embeddings
     
 
-class NGCF(BPR_MF):
+class NGCF(nn.Module):
     def __init__(self, num_users, num_items, args):
-        super().__init__(args)
+        super(NGCF, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
@@ -47,7 +46,10 @@ class NGCF(BPR_MF):
         self.layer_size = eval(args.layer_size)
 
         self.message_dropout = eval(args.mess_dropout)
-        self.node_dropout = eval(args.node_dropout)[0] 
+        self.node_dropout = eval(args.node_dropout)[0]
+
+        self.batch_size = args.batch_size
+        self.reg_coef = eval(args.regs)[0]
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -180,3 +182,18 @@ class NGCF(BPR_MF):
         batch_loss = mf_loss + emb_loss
 
         return batch_loss
+    
+    def predict_score(self, user_g_embeddings, all_item_g_embeddings):
+        """ Predict the score of a pair of user-item interaction
+        """
+        score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
+
+        return score
+        
+    def _convert_sp_mat_to_sp_tensor(self, L):
+        """ Convert sparse mat to sparse tensor.
+        """
+        coo = L.tocoo()
+        indices = torch.LongTensor([coo.row, coo.col])
+        values = torch.from_numpy(coo.data).float()
+        return torch.sparse.FloatTensor(indices, values, coo.shape)
