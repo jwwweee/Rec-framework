@@ -27,8 +27,8 @@ if __name__ == '__main__':
     
     print('Constructing graphs...')
 
-    interact_graph_path = 'data/' + args.dataset + '/interact_sparse_graph.npz'
-    social_graph_path = 'data/' + args.dataset + '/social_sparse_graph.npz'
+    interact_graph_path = 'data/' + args.dataset + '/graph/interact_sparse_graph.npz'
+    social_graph_path = 'data/' + args.dataset + '/graph/social_sparse_graph.npz'
 
     if os.path.exists(interact_graph_path):
         sparse_interact_graph = sp.load_npz(interact_graph_path)
