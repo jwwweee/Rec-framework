@@ -3,7 +3,7 @@ import random
 import scipy.sparse as sp
 
 class Data(object):
-    def __init__(self, data_path: str, name_data: str, is_social: bool=False, social_weight: bool=False, interact_weight: bool=False) -> None:
+    def __init__(self, data_path: str, name_data: str, is_social: bool=False, social_weight: bool=False, interact_weight: bool=True) -> None:
     
         interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
         
@@ -29,6 +29,14 @@ class Data(object):
 
             if social_weight:
                 self.social_weight = social_graph[:, 3]
+
+    def get_entire_dataset(self) -> list:
+        """ Get entire dataset
+
+            Return: entire user-item dataset list (interactions)
+        """
+
+        return self.interact_graph
 
     def get_social_graph(self) -> list:
         """ Get social graph.
@@ -134,7 +142,7 @@ class Data(object):
         return train_set, valid_set, test_set
     
     def pair_data_sampling(self, train_set_dict: list, batch_size: int):
-        """ Sample a batch of dataset.
+        """ Sample a batch of pair-wise data.
 
             Params:
                 dataset_dict: train_set_dict
