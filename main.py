@@ -6,7 +6,7 @@ from util.data_generator import *
 warnings.filterwarnings('ignore')
 from time import time
 import os
-from util.tester import *
+from util.evaluator import *
 
 
 if __name__ == '__main__':
@@ -110,7 +110,7 @@ if __name__ == '__main__':
             print(valid_stat)
     
 
-    
+
     # ----------------- Test -----------------
     evaluator_test = Evaluator(test_set_dict, args.K, data.num_items, args.batch_size)
     test_results = evaluator_test.evaluate(model)
