@@ -10,7 +10,7 @@ from util.tester import *
 
 
 if __name__ == '__main__':
-    print('Start preparing...')
+    print('Loading data...')
     prepare_start_time = time()
 
     args.device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else "cpu")
@@ -25,6 +25,8 @@ if __name__ == '__main__':
 
     data.print_statistics()
     
+    print('Constructing graphs...')
+
     interact_graph_path = 'data/' + args.dataset + '/interact_sparse_graph.npz'
     social_graph_path = 'data/' + args.dataset + '/social_sparse_graph.npz'
 
@@ -43,6 +45,9 @@ if __name__ == '__main__':
         sp.save_npz(social_graph_path, sparse_social_graph)
 
     # initial model
+
+    print('Initializing model...')
+
     model = DiffNet(data.num_users,
                  data.num_items,
                  args)
@@ -108,9 +113,9 @@ if __name__ == '__main__':
     tester_test = Tester(test_set_dict, args.K, data.num_items, args.batch_size)
     test_results = tester_test.test(model)
 
-    test_stat = 'Test results with Top-%d: traininig loss==[%.5f], recall=[%.5f], ' \
+    test_stat = 'Test results with Top-%d: recall=[%.5f], ' \
                        'precision=[%.5f], hit=[%.5f], ndcg=[%.5f]' % \
-                       (args.K, loss, test_results['recall'],
+                       (args.K, test_results['recall'],
                         test_results['precision'], test_results['hit_ratio'],
                         test_results['ndcg'])
     print(test_stat)
