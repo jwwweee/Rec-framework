@@ -65,7 +65,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
     # initial tester for validation
-    tester_valid = Tester(valid_set_dict, args.K, data.num_items, args.batch_size)
+    evaluator_valid = Evaluator(valid_set_dict, args.K, data.num_items, args.batch_size)
 
     for epoch in range(args.epoch):
         epoch_time = time()
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         if (epoch + 1) % 10 == 0:
             valid_start_time = time()
             
-            valid_results = tester_valid.test(model)
+            valid_results = evaluator_valid.evaluate(model)
             
             valid_finish_time = time()
             
@@ -109,9 +109,11 @@ if __name__ == '__main__':
                         valid_results['ndcg'])
             print(valid_stat)
     
+
+    
     # ----------------- Test -----------------
-    tester_test = Tester(test_set_dict, args.K, data.num_items, args.batch_size)
-    test_results = tester_test.test(model)
+    evaluator_test = Evaluator(test_set_dict, args.K, data.num_items, args.batch_size)
+    test_results = evaluator_test.evaluate(model)
 
     test_stat = 'Test results with Top-%d: recall=[%.5f], ' \
                        'precision=[%.5f], hit=[%.5f], ndcg=[%.5f]' % \
