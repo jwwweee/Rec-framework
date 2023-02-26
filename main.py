@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     data.print_statistics()
     
-    print('Constructing graphs...')
+    print('Initializing...')
 
     interact_graph_path = 'data/' + args.dataset + '/graph/interact_sparse_graph.npz'
     social_graph_path = 'data/' + args.dataset + '/graph/social_sparse_graph.npz'
@@ -45,9 +45,6 @@ if __name__ == '__main__':
         sp.save_npz(social_graph_path, sparse_social_graph)
 
     # initial model
-
-    print('Initializing model...')
-
     model = DiffNet(data.num_users,
                  data.num_items,
                  args)
@@ -64,8 +61,14 @@ if __name__ == '__main__':
     # initialize optimizer
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
-    # initial tester for validation
+    # initial evaluator for validation
     evaluator_valid = Evaluator(valid_set_dict, args.K, data.num_items, args.batch_size)
+
+    stop_metric_type = 'recall' # set the early stop metric type
+    best_metric = 0
+
+    model_path = 'model/pt/DiffNet.pt'
+
 
     for epoch in range(args.epoch):
         epoch_time = time()
@@ -92,7 +95,6 @@ if __name__ == '__main__':
             epoch, time() - epoch_time, loss)
         print(train_stat)
         
-
         # ----------------- Validation -----------------
         
         if (epoch + 1) % 10 == 0:
@@ -109,10 +111,29 @@ if __name__ == '__main__':
                         valid_results['ndcg'])
             print(valid_stat)
     
+            # ----------------- Early stopping -----------------
+            
+            stop_metric = valid_results[stop_metric_type]
+
+            if stop_metric > best_metric:
+                best_metric = stop_metric
+                early_stopping_counter = 0 # restart counter
+                
+                print("Saving model...")
+                torch.save(model, model_path) # save model in terms of validation result
+            else:
+                early_stopping_counter += 1
+
+            if early_stopping_counter > 10: # validate 10 times, if the best metric is not updated, then early stop
+                print("Early stopping...")
+                break
 
 
     # ----------------- Test -----------------
     evaluator_test = Evaluator(test_set_dict, args.K, data.num_items, args.batch_size)
+
+    model = torch.load(model_path) # load model
+
     test_results = evaluator_test.evaluate(model)
 
     test_stat = 'Test results with Top-%d: recall=[%.5f], ' \

@@ -100,8 +100,8 @@ class Evaluator():
             Return:
                 The dict results of each user
         """
-        result = {'precision': 0., 'recall': 0., 'ndcg': 0.,
-              'hit_ratio': 0.}
+
+        result = {'precision': 0., 'recall': 0., 'ndcg': 0., 'hit_ratio': 0.}
 
         pool = multiprocessing.Pool(CORES)
 
