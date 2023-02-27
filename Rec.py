@@ -12,7 +12,6 @@ from util.evaluator import *
 
 class Rec(object):
     def __init__(self, name_data, name_model, K=10, is_social=False, task_type='ranking') -> None:
-        self.name_model = name_model
         self.is_social = is_social
         self.task_type = task_type
         self.EPOCH = 5000
@@ -48,8 +47,13 @@ class Rec(object):
                 sp.save_npz(social_graph_path, self.sparse_social_graph)
 
         # ----------------- initial model -----------------
-        self.model_path = 'model/pt/DiffNet.pt'
-        self.model = DiffNet(self.data.num_users, self.data.num_items, args)
+        
+        model_import_state = 'from model.' + name_model + ' import ' + name_model
+        exec(model_import_state) # import model
+
+        self.model = eval(name_model + '(self.data.num_users, self.data.num_items, args)') # initial model
+        
+        self.model_path = 'model/pt/' + name_model + '.pt'
 
         if self.is_social:
             self.model.initialize_graph(self.sparse_interact_graph, self.sparse_social_graph)
