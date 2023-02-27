@@ -35,21 +35,21 @@ class NGCFConv(nn.Module):
     
 
 class NGCF(nn.Module):
-    def __init__(self, num_users, num_items, args):
+    def __init__(self, num_users, num_items, config, device):
         super(NGCF, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(eval(args.layer_size))
+        self.num_layer = len(eval(config['layer_size']))
         
-        self.embed_size = args.embed_size
-        self.layer_size = eval(args.layer_size)
+        self.embed_size = config['embed_size']
+        self.layer_size = eval(config['layer_size'])
 
-        self.message_dropout = eval(args.mess_dropout)
-        self.node_dropout = eval(args.node_dropout)[0]
+        self.message_dropout = eval(config['mess_dropout'])
+        self.node_dropout = eval(config['node_dropout'])[0]
 
-        self.batch_size = args.batch_size
-        self.reg_coef = eval(args.regs)[0]
+        self.batch_size = config['batch_size']
+        self.reg_coef = eval(config['regs'])[0]
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -67,7 +67,7 @@ class NGCF(nn.Module):
             layer = NGCFConv(self.layer_size[i])
             self.conv_layers.append(layer)
 
-        self.device = args.device
+        self.device = device
         self = self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):

@@ -6,18 +6,18 @@ import numpy as np
 
 
 class DiffNet(nn.Module):
-    def __init__(self, num_users, num_items, args):
+    def __init__(self, num_users, num_items, config, device):
         super(DiffNet, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(eval(args.layer_size))
+        self.num_layer = len(eval(config['layer_size']))
 
-        self.device = args.device
-        self.embed_size = args.embed_size
-        self.layer_size = eval(args.layer_size)
-        self.batch_size = args.batch_size
-        self.reg_coef = eval(args.regs)[0]
+        self.device = device
+        self.embed_size = config['embed_size']
+        self.layer_size = eval(config['layer_size'])
+        self.batch_size = config['batch_size']
+        self.reg_coef = eval(config['regs'])[0]
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -40,7 +40,6 @@ class DiffNet(nn.Module):
         torch.nn.init.xavier_uniform_(self.s_layer.weight)
         torch.nn.init.constant_(self.s_layer.bias, 0)
 
-        self.device = args.device
         self = self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):

@@ -15,15 +15,15 @@ class LightGCNConv(nn.Module):
         
 
 class LightGCN(nn.Module):
-    def __init__(self, num_users, num_items, args):
+    def __init__(self, num_users, num_items, config, device):
         super(LightGCN, self).__init__()
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(eval(args.layer_size))
-        self.embed_size = args.embed_size
-        self.batch_size = args.batch_size
-        self.reg_coef = eval(args.regs)[0]
+        self.num_layer = len(eval(config['layer_size']))
+        self.embed_size = config['embed_size']
+        self.batch_size = config['batch_size']
+        self.reg_coef = eval(config['regs'])[0]
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -41,7 +41,7 @@ class LightGCN(nn.Module):
             layer = LightGCNConv()
             self.conv_layers.append(layer)
 
-        self.device = args.device
+        self.device = device
         self = self.to(self.device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):

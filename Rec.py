@@ -1,29 +1,37 @@
 import torch
 import torch.optim as optim
-from model.DiffNet import DiffNet
 import warnings
 from util.data_generator import *
 warnings.filterwarnings('ignore')
 from time import time
 import os
 from util.evaluator import *
+import yaml
+from util.arg_parser import parse_args
 
 
 
 class Rec(object):
-    def __init__(self, name_data, name_model, K=10, is_social=False, task_type='ranking') -> None:
+    def __init__(self, data, name_data, name_model, K=10, is_social=False, task_type='ranking') -> None:
+        
+        self.name_model = name_model
         self.is_social = is_social
         self.task_type = task_type
-        self.EPOCH = 5000
+        self.EPOCH = 1000
         self.K = K
+        
         self.early_stopping_counter = 0
+        if self.task_type == 'ranking':
+            self.best_metric = 0
+        else:
+            self.best_metric = np.inf
+
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
-        self.data = Data(data_path='data/', name_data=name_data, is_social=True) # get data
+        self.data = data
 
-        self.train_set, self.valid_set, self.test_set = self.data.split_dataset()
-        
         print('Initializing...')
+        initial_start_time = time()
         # ----------------- initialze graphs -----------------
         # initialize interact graph
         interact_graph_path = 'data/' + name_data + '/graph/interact_sparse_graph.npz'
@@ -48,10 +56,13 @@ class Rec(object):
 
         # ----------------- initial model -----------------
         
+        with open('config/' + name_model + '.yaml', "r") as file:
+            self.config = yaml.load(file)
+
         model_import_state = 'from model.' + name_model + ' import ' + name_model
         exec(model_import_state) # import model
 
-        self.model = eval(name_model + '(self.data.num_users, self.data.num_items, args)') # initial model
+        self.model = eval(name_model + '(self.data.num_users, self.data.num_items, self.config, self.device)') # initial model
         
         self.model_path = 'model/pt/' + name_model + '.pt'
 
@@ -59,6 +70,9 @@ class Rec(object):
             self.model.initialize_graph(self.sparse_interact_graph, self.sparse_social_graph)
         else:
             self.model.initialize_graph(self.sparse_interact_graph)
+        
+        initial_state =  'Initialize compeleted [%.1fs]' % (time() - initial_start_time)
+        print(initial_state)
 
     def _ealry_stop(self, valid_results, stop_metric_type):
         """
@@ -66,8 +80,8 @@ class Rec(object):
         stop_metric = valid_results[stop_metric_type]
 
         if self.task_type == 'ranking':
-            if stop_metric > best_metric:
-                best_metric = stop_metric
+            if stop_metric > self.best_metric:
+                self.best_metric = stop_metric
                 self.early_stopping_counter = 0 # restart counter
                 
                 print("Saving model...")
@@ -75,8 +89,8 @@ class Rec(object):
             else:
                 self.early_stopping_counter += 1
         else: # rating
-            if stop_metric < best_metric:
-                best_metric = stop_metric
+            if stop_metric < self.best_metric:
+                self.best_metric = stop_metric
                 self.early_stopping_counter = 0 # restart counter
                 
                 print("Saving model...")
@@ -111,24 +125,19 @@ class Rec(object):
         
         # ----------------- Train -----------------
         # initialize optimizer
-        optimizer = optim.Adam(self.model.parameters(), lr=args.lr)
+        optimizer = optim.Adam(self.model.parameters(), lr=self.config['lr'])
         
         # initial evaluator for validation
-        evaluator_valid = Evaluator(valid_set, self.K, self.data.num_items, args.batch_size)
-        
-        if self.task_type == 'ranking':
-            best_metric = 0
-        else:
-            best_metric = np.inf
+        evaluator_valid = Evaluator(valid_set, self.K, self.data.num_items, self.config['batch_size'])
         
         for epoch in range(self.EPOCH):
             epoch_time = time()
             loss = 0.
 
-            num_train_batch = self.data.num_train // args.batch_size + 1
+            num_train_batch = self.data.num_train // self.config['batch_size'] + 1
 
             for idx in range(num_train_batch):
-                users, pos_items, neg_items = self.data.pair_data_sampling(train_set, args.batch_size)
+                users, pos_items, neg_items = self.data.pair_data_sampling(train_set, self.config['batch_size'])
                 user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = self.model(users,
                                                                             pos_items,
                                                                             neg_items)
@@ -152,15 +161,17 @@ class Rec(object):
                 # ----------------- Early stopping -----------------
                 self._ealry_stop(valid_results, stop_metric_type)
 
-                if self.early_stopping_counter > 50: # validate 50 times (500 epoches), if the best metric is not updated, then early stop
+                if self.early_stopping_counter > 10: # validate 10 times (100 epoches), if the best metric is not updated, then early stop
                     print("Early stopping...")
                     break
             
-    def test(self, test_set_dict):
+    def test(self, test_set):
         """
         """
         # ----------------- Test -----------------
-        evaluator_test = Evaluator(test_set_dict, args.K, self.data.num_items, args.batch_size)
+        test_set = self.data.retrieve_user_interacts(test_set)
+
+        evaluator_test = Evaluator(test_set, self.K, self.data.num_items, self.config['batch_size'])
 
         model = torch.load(self.model_path) # load model
 
@@ -168,19 +179,18 @@ class Rec(object):
 
         test_stat = 'Test results with Top-%d: recall=[%.5f], ' \
                         'precision=[%.5f], hit=[%.5f], ndcg=[%.5f]' % \
-                        (args.K, test_results['recall'],
+                        (self.K, test_results['recall'],
                             test_results['precision'], test_results['hit_ratio'],
                             test_results['ndcg'])
         print(test_stat)
 
-
-
-
-
-    
-        
-    
-
-        
-
-            
+    def save_config(self, config):
+        """
+        """
+        config = parse_args()
+        if not os.path.exists("config"):
+            os.mkdir("config")
+        config = vars(config)
+        config_file_name = self.name_model + '.yaml'
+        with open(os.path.join("config", config_file_name), "w") as file:
+            file.write(yaml.dump(config))

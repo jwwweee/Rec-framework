@@ -3,10 +3,7 @@ import itertools
 import numpy as np
 import heapq
 import multiprocessing
-from util.arg_parser import parse_args
 import torch
-
-args = parse_args()
 
 CORES = multiprocessing.cpu_count() // 2
 
