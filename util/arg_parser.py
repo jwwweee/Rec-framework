@@ -4,11 +4,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run.")
     parser.add_argument('--dataset', nargs='?', default='ciao',
                         help='Choose a dataset from {ciao, epinions, gowalla}')
-    parser.add_argument('--epoch', type=int, default=1000,
+    parser.add_argument('--epoch', type=int, default=5000,
                         help='Number of epoch.')
     parser.add_argument('--embed_size', type=int, default=64,
                         help='Embedding size.')
-    parser.add_argument('--layer_size', nargs='?', default='[64,64,64]',
+    parser.add_argument('--layer_size', nargs='?', default='[64,64]',
                         help='Output sizes of every layer')
     parser.add_argument('--batch_size', type=int, default=1024,
                         help='Batch size.')

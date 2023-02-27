@@ -77,7 +77,6 @@ if __name__ == '__main__':
         num_train_batch = data.num_train // args.batch_size + 1
 
         for idx in range(num_train_batch):
-            t1 = time()
             users, pos_items, neg_items = data.pair_data_sampling(train_set_dict, args.batch_size)
             user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = model(users,
                                                                            pos_items,
@@ -124,7 +123,7 @@ if __name__ == '__main__':
             else:
                 early_stopping_counter += 1
 
-            if early_stopping_counter > 10: # validate 10 times, if the best metric is not updated, then early stop
+            if early_stopping_counter > 50: # validate 50 times (500 epoches), if the best metric is not updated, then early stop
                 print("Early stopping...")
                 break
 
