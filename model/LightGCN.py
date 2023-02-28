@@ -7,15 +7,14 @@ class LightGCNConv(nn.Module):
     def __init__(self):
         super(LightGCNConv, self).__init__()
 
-    def forward(self, A_hat, E):
-        # left side of the equation
-        side_embeddings = torch.matmul(A_hat, E)
+    def forward(self, R, X):
+        side_embeddings = torch.matmul(R, X)
 
         return side_embeddings
         
 
 class LightGCN(nn.Module):
-    def __init__(self, num_users, num_items, config, device):
+    def __init__(self, num_users, num_items, R, config, device):
         super(LightGCN, self).__init__()
         
         self.num_users = num_users
@@ -24,6 +23,28 @@ class LightGCN(nn.Module):
         self.embed_size = config['embed_size']
         self.batch_size = config['batch_size']
         self.reg_coef = eval(config['regs'])[0]
+        self.config = config
+
+        # interaction graph
+        adj_mat = sp.dok_matrix((self.num_users + self.num_items, self.num_users + self.num_items), dtype=np.float32)
+        adj_mat = adj_mat.tolil()
+        R = R.tolil()
+
+        adj_mat[:self.num_users, self.num_users:] = R
+        adj_mat[self.num_users:, :self.num_users] = R.T
+        adj_mat = adj_mat.todok()
+        
+        rowsum = np.array(adj_mat.sum(1))
+
+        d_inv_sqrt = np.power(rowsum, -0.5).flatten()
+        d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+        d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
+
+        bi_lap = d_mat_inv_sqrt.dot(adj_mat).dot(d_mat_inv_sqrt)
+        self.A_hat = bi_lap.tocoo()
+
+        self.A_hat = self._convert_sp_mat_to_sp_tensor(self.A_hat).to(device)
+        
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -41,8 +62,7 @@ class LightGCN(nn.Module):
             layer = LightGCNConv()
             self.conv_layers.append(layer)
 
-        self.device = device
-        self = self.to(self.device)
+        self = self.to(device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):
         """ Model feedforward procedure
@@ -75,33 +95,6 @@ class LightGCN(nn.Module):
         batch_neg_items_repr = item_g_embeddings[batch_neg_item,:]
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
-
-    def initialize_graph(self, sparse_interact_graph):
-        """ Initialize the graph, create the saprse Laplacian matrix for user-item interaction matrix.
-            
-            interact_matrix size: interaction num x 2
-
-        """
-
-        # interaction adjacent matrices
-        adj_mat = sp.dok_matrix((self.num_users + self.num_items, self.num_users + self.num_items), dtype=np.float32)
-        adj_mat = adj_mat.tolil()
-        R = sparse_interact_graph.tolil()
-
-        adj_mat[:self.num_users, self.num_users:] = R
-        adj_mat[self.num_users:, :self.num_users] = R.T
-        adj_mat = adj_mat.todok()
-        
-        rowsum = np.array(adj_mat.sum(1))
-
-        d_inv_sqrt = np.power(rowsum, -0.5).flatten()
-        d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
-        d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-
-        bi_lap = d_mat_inv_sqrt.dot(adj_mat).dot(d_mat_inv_sqrt)
-        self.A_hat = bi_lap.tocoo()
-
-        self.A_hat = self._convert_sp_mat_to_sp_tensor(self.A_hat).to(self.device)
         
     def sparse_dropout(self, A_hat, dropout_rate, noise_shape):
         """ Node dropout.
@@ -146,7 +139,26 @@ class LightGCN(nn.Module):
         score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
 
         return score
-        
+    
+    def train_epoch(self, train_set, optimizer, num_train_batch, data):
+        """ Train each epoch, return total loss of the epoch
+        """
+        loss = 0.
+        for idx in range(num_train_batch):
+            users, pos_items, neg_items = data.pair_data_sampling(train_set, self.config['batch_size'])
+            user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = self.forward(users,
+                                                                        pos_items,
+                                                                        neg_items)
+
+            batch_loss = self.loss_func(user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings)
+            optimizer.zero_grad()
+            batch_loss.backward()
+            optimizer.step()
+
+            loss += batch_loss
+
+        return loss
+
     def _convert_sp_mat_to_sp_tensor(self, L):
         """ Convert sparse mat to sparse tensor.
         """

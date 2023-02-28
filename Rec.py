@@ -12,14 +12,19 @@ from util.arg_parser import parse_args
 
 
 class Rec(object):
-    def __init__(self, data, name_data, name_model, K=10, is_social=False, task_type='ranking') -> None:
+    def __init__(self, data, name_data, name_model, K=10, is_social=False) -> None:
         
         self.name_model = name_model
         self.is_social = is_social
-        self.task_type = task_type
         self.EPOCH = 1000
         self.K = K
         
+        
+        if name_model in ['GraphRec', 'SocialMF']: # other models are default as "ranking task"
+            self.task_type = input('It\'s a rating model, need to rank or rate? (type \'ranking\' or \'rating\')')
+        else:
+            self.task_type = 'ranking'
+
         self.early_stopping_counter = 0
         if self.task_type == 'ranking':
             self.best_metric = 0
@@ -55,21 +60,18 @@ class Rec(object):
                 sp.save_npz(social_graph_path, self.sparse_social_graph)
 
         # ----------------- initial model -----------------
-        
         with open('config/' + name_model + '.yaml', "r") as file:
             self.config = yaml.load(file)
 
         model_import_state = 'from model.' + name_model + ' import ' + name_model
         exec(model_import_state) # import model
 
-        self.model = eval(name_model + '(self.data.num_users, self.data.num_items, self.config, self.device)') # initial model
-        
         self.model_path = 'model/pt/' + name_model + '.pt'
 
         if self.is_social:
-            self.model.initialize_graph(self.sparse_interact_graph, self.sparse_social_graph)
+            self.model = eval(name_model + '(self.data.num_users, self.data.num_items, self.sparse_interact_graph, self.sparse_social_graph, self.config, self.device)')
         else:
-            self.model.initialize_graph(self.sparse_interact_graph)
+            self.model = eval(name_model + '(self.data.num_users, self.data.num_items, self.sparse_interact_graph, self.config, self.device)')
         
         initial_state =  'Initialize compeleted [%.1fs]' % (time() - initial_start_time)
         print(initial_state)
@@ -132,22 +134,11 @@ class Rec(object):
         
         for epoch in range(self.EPOCH):
             epoch_time = time()
-            loss = 0.
+            
 
             num_train_batch = self.data.num_train // self.config['batch_size'] + 1
 
-            for idx in range(num_train_batch):
-                users, pos_items, neg_items = self.data.pair_data_sampling(train_set, self.config['batch_size'])
-                user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = self.model(users,
-                                                                            pos_items,
-                                                                            neg_items)
-
-                batch_loss = self.model.loss_func(user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings)
-                optimizer.zero_grad()
-                batch_loss.backward()
-                optimizer.step()
-
-                loss += batch_loss
+            loss = self.model.train_epoch(train_set, optimizer, num_train_batch, self.data)
 
             # training statement
             train_stat = 'Epoch %d [%.1fs]: train loss==[%.5f]' % (

@@ -6,18 +6,38 @@ import numpy as np
 
 
 class DiffNet(nn.Module):
-    def __init__(self, num_users, num_items, config, device):
+    def __init__(self, num_users, num_items, R, S, config, device):
         super(DiffNet, self).__init__()
+        
         
         self.num_users = num_users
         self.num_items = num_items
         self.num_layer = len(eval(config['layer_size']))
-
-        self.device = device
         self.embed_size = config['embed_size']
         self.layer_size = eval(config['layer_size'])
         self.batch_size = config['batch_size']
         self.reg_coef = eval(config['regs'])[0]
+        self.config = config
+
+
+        # initial graphs
+        interact_D = np.array(R.sum(1))
+        interact_D = np.power(interact_D, -1).flatten()
+        interact_D[np.isinf(interact_D)] = 0.
+        interact_D = sp.diags(interact_D)
+        norm_R = interact_D.dot(R)
+
+        social_D = np.array(S.sum(1))
+        social_D = np.power(social_D, -1).flatten()
+        social_D[np.isinf(social_D)] = 0.
+        social_D = sp.diags(social_D)
+        norm_S = social_D.dot(S)
+
+        self.R = norm_R.tocoo()
+        self.S = norm_S.tocoo()
+
+        self.R = self._convert_sp_mat_to_sp_tensor(self.R).to(device)
+        self.S = self._convert_sp_mat_to_sp_tensor(self.S).to(device)
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
@@ -40,7 +60,7 @@ class DiffNet(nn.Module):
         torch.nn.init.xavier_uniform_(self.s_layer.weight)
         torch.nn.init.constant_(self.s_layer.bias, 0)
 
-        self = self.to(self.device)
+        self = self.to(device)
 
     def forward(self, batch_user, batch_pos_item, batch_neg_item):
         """ Model feedforward procedure
@@ -72,29 +92,6 @@ class DiffNet(nn.Module):
 
         return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
 
-    def initialize_graph(self, R, S):
-        """ Initialize the graphs, create the saprse Laplacian matrix for user-item interaction graph and social graph.
-        """
-
-        # normalization
-        interact_D = np.array(R.sum(1))
-        interact_D = np.power(interact_D, -1).flatten()
-        interact_D[np.isinf(interact_D)] = 0.
-        interact_D = sp.diags(interact_D)
-        norm_R = interact_D.dot(R)
-
-        social_D = np.array(S.sum(1))
-        social_D = np.power(social_D, -1).flatten()
-        social_D[np.isinf(social_D)] = 0.
-        social_D = sp.diags(social_D)
-        norm_S = social_D.dot(S)
-
-        self.R = norm_R.tocoo()
-        self.S = norm_S.tocoo()
-
-        self.R = self._convert_sp_mat_to_sp_tensor(self.R).to(self.device)
-        self.S = self._convert_sp_mat_to_sp_tensor(self.S).to(self.device)
-
     def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
         """ BPR loss function, compute BPR loss for ranking task in recommendation.
         """
@@ -125,6 +122,25 @@ class DiffNet(nn.Module):
         score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
 
         return score
+    
+    def train_epoch(self, train_set, optimizer, num_train_batch, data):
+        """ Train each epoch, return total loss of the epoch
+        """
+        loss = 0.
+        for idx in range(num_train_batch):
+            users, pos_items, neg_items = data.pair_data_sampling(train_set, self.config['batch_size'])
+            user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = self.forward(users,
+                                                                        pos_items,
+                                                                        neg_items)
+
+            batch_loss = self.loss_func(user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings)
+            optimizer.zero_grad()
+            batch_loss.backward()
+            optimizer.step()
+
+            loss += batch_loss
+
+        return loss
         
     def _convert_sp_mat_to_sp_tensor(self, L):
         """ Convert sparse mat to sparse tensor.
