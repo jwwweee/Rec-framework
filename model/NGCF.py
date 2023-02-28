@@ -126,12 +126,12 @@ class NGCF(nn.Module):
         batch_user_g_embeddings = user_g_embeddings[batch_user, :]
 
         # get positive items representations
-        batch_pos_items_repr = item_g_embeddings[batch_pos_item, :]
+        batch_pos_items_embeddings = item_g_embeddings[batch_pos_item, :]
 
         # get negative items representations
-        batch_neg_items_repr = item_g_embeddings[batch_neg_item, :]
+        batch_neg_items_embeddings = item_g_embeddings[batch_neg_item, :]
 
-        return batch_user_g_embeddings, batch_pos_items_repr, batch_neg_items_repr
+        return batch_user_g_embeddings, batch_pos_items_embeddings, batch_neg_items_embeddings
         
     def sparse_dropout(self, L, dropout_rate, noise_shape):
         """ Node dropout.

@@ -66,33 +66,16 @@ class GraphRec(nn.Module):
 
         # ---------- item modeling ----------
         M = self.w2_M(F.relu(self.W1_M(torch.cat([U, V], dim=0)))) # social attention coef
+        Z = F.relu(self.W_M(torch.matmul(torch.mul(self.R.t(), M), U)))
 
         # ----------------------- retrieving target users and items -----------------------
         # retrieve batched users and items
-        batch_user_g_embeddings = user_g_embeddings[batch_user,:]
+        batch_user_g_embeddings = H[batch_user,:]
 
         # get positive items representations
-        batch_pos_items_repr = item_g_embeddings[batch_item,:]
+        batch_items_embeddings = Z[batch_item,:]
 
-        return batch_user_g_embeddings, batch_pos_items_repr
-
-    def initialize_graph(self, R):
-        """ Initialize the graph, create the saprse Laplacian matrix for user-item interaction matrix.
-            
-            interact_matrix size: interaction num x 2
-
-        """
-
-        rowsum = np.array(R.sum(1))
-
-        d_inv_sqrt = np.power(rowsum, -0.5).flatten()
-        d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
-        d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-
-        bi_lap = d_mat_inv_sqrt.dot(R).dot(d_mat_inv_sqrt)
-        self.R = bi_lap.tocoo()
-
-        self.R = self._convert_sp_mat_to_sp_tensor(self.R).to(self.device)
+        return batch_user_g_embeddings, batch_items_embeddings
         
     def sparse_dropout(self, A_hat, dropout_rate, noise_shape):
         """ Node dropout.
@@ -110,24 +93,25 @@ class GraphRec(nn.Module):
         out = torch.sparse.FloatTensor(indices, values, A_hat.shape).to(A_hat.device)
         return out * (1. / (1 - dropout_rate))
     
-    def loss_func(self, user_g_embeddings, pos_item_g_embeddings, neg_item_g_embeddings):
+    def loss_func(self, user_g_embeddings, item_g_embeddings, batch_y):
         """ BPR loss function, compute BPR loss for ranking task in recommendation.
         """
 
-        # compute positive and negative scores
-        pos_scores = torch.sum(torch.mul(user_g_embeddings, pos_item_g_embeddings), axis=1)
-        neg_scores = torch.sum(torch.mul(user_g_embeddings, neg_item_g_embeddings), axis=1)
-        
-        mf_loss = -1 * torch.mean(nn.LogSigmoid()(pos_scores - neg_scores))
+        # ---------- batch rating prediction ----------
+        G = torch.cat([user_g_embeddings, item_g_embeddings], dim=0)
+        for i in range(self.num_layer):
+            G = self.W_g[i](G)
+            G = F.relu(G)
+
+        pred_loss = (G - batch_y).norm(2).pow(2)
 
         # compute regularizer
         regularizer = (torch.norm(user_g_embeddings) ** 2
-                       + torch.norm(pos_item_g_embeddings) ** 2
-                       + torch.norm(neg_item_g_embeddings) ** 2) / 2
+                       + torch.norm(item_g_embeddings) ** 2) / 2
 
         emb_loss = self.reg_coef * regularizer / self.batch_size
         
-        batch_loss = mf_loss + emb_loss
+        batch_loss = pred_loss + emb_loss
 
         return batch_loss
     
@@ -141,13 +125,14 @@ class GraphRec(nn.Module):
     def train_epoch(self, train_set, optimizer, num_train_batch):
         """ Train each epoch, return total loss of the epoch
         """
+        loss = 0.
         for idx in range(num_train_batch):
             users, pos_items, neg_items = self.data.pair_data_sampling(train_set, self.config['batch_size'])
             user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = self.model(users,
                                                                         pos_items,
                                                                         neg_items)
 
-            batch_loss = self.model.loss_func(user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings)
+            batch_loss = self.loss_func(user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings)
             optimizer.zero_grad()
             batch_loss.backward()
             optimizer.step()
