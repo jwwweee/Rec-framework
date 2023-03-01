@@ -128,11 +128,11 @@ class GraphRec(nn.Module):
         loss = 0.
         for idx in range(num_train_batch):
             users, pos_items, neg_items = self.data.pair_data_sampling(train_set, self.config['batch_size'])
-            user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings = self.model(users,
+            user_final_embeddings, pos_item_final_embeddings = self.model(users,
                                                                         pos_items,
                                                                         neg_items)
 
-            batch_loss = self.loss_func(user_final_embeddings, pos_item_final_embeddings, neg_item_final_embeddings)
+            batch_loss = self.loss_func(user_final_embeddings, pos_item_final_embeddings)
             optimizer.zero_grad()
             batch_loss.backward()
             optimizer.step()
