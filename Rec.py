@@ -121,7 +121,7 @@ class Rec(object):
         """
         """
 
-        if self.name_model not in ['GraphRec']:
+        if self.name_model not in ['socialMF']:
             train_set = self.data.retrieve_user_interacts(train_set[:, :2])
             valid_set = self.data.retrieve_user_interacts(valid_set[:, :2])
             
