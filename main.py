@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     name_data = 'ciao'
     
-    data = Data(data_path='data/', name_data=name_data, is_social=False) # get data
+    data = Data(data_path='data/', name_data=name_data, is_social=True) # get data
 
     train_set, valid_set, test_set = data.split_dataset() # split dataset
 
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     prepare_state = 'Preparation compeleted [%.1fs]' % (train_start_time - prepare_start_time)
     print(prepare_state)
 
-    rec = Rec(data, name_data, name_model='NGCF', is_social=False, K=10)
+    rec = Rec(data, name_data, name_model='GraphRec', is_social=True, K=10)
     
     print('Start training...')
     

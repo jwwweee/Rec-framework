@@ -20,7 +20,7 @@ class DiffNet(nn.Module):
         self.config = config
 
 
-        # initial graphs
+        # initialize graphs
         interact_D = np.array(R.sum(1))
         interact_D = np.power(interact_D, -1).flatten()
         interact_D[np.isinf(interact_D)] = 0.
@@ -42,7 +42,7 @@ class DiffNet(nn.Module):
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
         
-        # initial embeddings layers
+        # initialize embeddings layers
         self.parameter_list = nn.ParameterDict({
             'embed_user': nn.Parameter(initializer(torch.empty(self.num_users,
                                                  self.embed_size))),
@@ -66,7 +66,7 @@ class DiffNet(nn.Module):
         """ Model feedforward procedure
         """
         # ----------------------- feed-forward process -----------------------
-        # initial user and item embeddings (users and items)
+        # initialize user and item embeddings (users and items)
 
         U = self.activation(self.parameter_list['embed_user'])
         V = self.activation(self.parameter_list['embed_item'])

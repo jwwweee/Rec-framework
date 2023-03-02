@@ -19,9 +19,8 @@ class Rec(object):
         self.EPOCH = 1000
         self.K = K
         
-        
         if name_model in ['GraphRec', 'SocialMF']: # other models are default as "ranking task"
-            self.task_type = input('It\'s a rating model, need to rank or rate? (type \'ranking\' or \'rating\')')
+            self.task_type = input('It\'s a rating model, need to rank or rate? (type \'ranking\' or \'rating\'): ')
         else:
             self.task_type = 'ranking'
 
@@ -61,7 +60,7 @@ class Rec(object):
 
         # ----------------- initial model -----------------
         with open('config/' + name_model + '.yaml', "r") as file:
-            self.config = yaml.load(file)
+            self.config = yaml.load(file, Loader=yaml.FullLoader)
 
         model_import_state = 'from model.' + name_model + ' import ' + name_model
         exec(model_import_state) # import model
@@ -122,15 +121,19 @@ class Rec(object):
         """
         """
 
-        train_set = self.data.retrieve_user_interacts(train_set)
-        valid_set = self.data.retrieve_user_interacts(valid_set)
+        if self.name_model not in ['GraphRec']:
+            train_set = self.data.retrieve_user_interacts(train_set[:, :2])
+            valid_set = self.data.retrieve_user_interacts(valid_set[:, :2])
+            
+            # initial evaluator for validation
+            evaluator_valid = Evaluator(valid_set, self.K, self.data.num_items, self.config['batch_size'])
+        else:
+            valid_set_dict = self.data.retrieve_user_interacts(valid_set[:, :2])
+            evaluator_valid = Evaluator(valid_set_dict, self.K, self.data.num_items, self.config['batch_size'])
         
         # ----------------- Train -----------------
         # initialize optimizer
         optimizer = optim.Adam(self.model.parameters(), lr=self.config['lr'])
-        
-        # initial evaluator for validation
-        evaluator_valid = Evaluator(valid_set, self.K, self.data.num_items, self.config['batch_size'])
         
         for epoch in range(self.EPOCH):
             epoch_time = time()
@@ -160,7 +163,8 @@ class Rec(object):
         """
         """
         # ----------------- Test -----------------
-        test_set = self.data.retrieve_user_interacts(test_set)
+        if self.name_model not in ['GraphRec']:
+            test_set = self.data.retrieve_user_interacts(test_set[:, :2])
 
         evaluator_test = Evaluator(test_set, self.K, self.data.num_items, self.config['batch_size'])
 

@@ -69,14 +69,14 @@ class NGCF(nn.Module):
         bi_lap = d_mat_inv_sqrt.dot(adj_mat).dot(d_mat_inv_sqrt)
         self.L = bi_lap.tocoo()
 
-        # initial L and I
+        # initialize L and I
         self.L = self._convert_sp_mat_to_sp_tensor(self.L).to(device)
         self.I = torch.eye(self.num_users + self.num_items).to_sparse().to(device)
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
 
-        # initial embeddings layers
+        # initialize embeddings layers
         self.parameter_list = nn.ParameterDict({
             'embed_user': nn.Parameter(initializer(torch.empty(self.num_users,
                                                  self.embed_size))),
@@ -100,7 +100,7 @@ class NGCF(nn.Module):
                                     self.node_dropout,
                                     self.L._nnz()) if self.node_dropout else self.L
 
-        # initial concatenated embeddings (users and items)
+        # initialize concatenated embeddings (users and items)
         E = torch.cat([self.parameter_list['embed_user'], self.parameter_list['embed_item']], dim=0)
         
         # message propagation for each layer (both user and item phases)

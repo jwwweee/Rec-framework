@@ -11,53 +11,110 @@ class GraphRec(nn.Module):
         
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(eval(config['layer_size']))
+        self.num_scores = config['num_scores']
+        self.num_layer = config['num_layer']
         self.embed_size = config['embed_size']
         self.batch_size = config['batch_size']
         self.reg_coef = eval(config['regs'])[0]
+        self.config = config
+        self.device = device
+
+        # initialize graphs
+        self.R = R.tocoo()
+        self.S = S.tocoo()
+
+        self.R = self._convert_sp_mat_to_sp_tensor(self.R).to(device)
+        self.S = self._convert_sp_mat_to_sp_tensor(self.S).to(device)
 
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
 
-        # initial embeddings layers
-        self.user_embedding = torch.nn.Embedding(
-            num_embeddings=self.batch_size, embedding_dim=self.embed_size)
-        self.item_embedding = torch.nn.Embedding(
-            num_embeddings=self.batch_size, embedding_dim=self.embed_size)
+        # initialize embeddings layers
+        self.e_r = torch.Tensor(list(range(1, self.num_scores + 1))).to(device)
+        self.rate_embedding = nn.Linear(self.num_scores, self.embed_size)
         
         self.parameter_list = nn.ParameterDict({
-            'embed_rate': nn.Parameter(initializer(torch.empty(self.num_users,
+            'embed_user': nn.Parameter(initializer(torch.empty(self.num_users,
+                                                 self.embed_size))),
+            'embed_item': nn.Parameter(initializer(torch.empty(self.num_items,
                                                  self.embed_size)))})
-
-        self.item_conv_layers = nn.ModuleList()
+        
+        # initialize linear layers
+        self.W_u = nn.ModuleList()
+        self.W_v = nn.ModuleList()
+        self.W_c = nn.ModuleList()
+        self.W_g = nn.ModuleList()
         for i in range(self.num_layer):
-            # self.W_c = tor
-            self.item_conv_layers.append(item_layer)
+            if i == 0:
+                W_u = nn.Linear(self.embed_size*2, self.embed_size)
+                W_v = nn.Linear(self.embed_size*2, self.embed_size)
+            else:
+                W_u = nn.Linear(self.embed_size, self.embed_size)
+                W_v = nn.Linear(self.embed_size, self.embed_size)
 
-        self.device = device
+            W_c = nn.Linear(self.embed_size, self.embed_size)
+            W_g = nn.Linear(self.embed_size, self.embed_size)
+            
+            self.W_u.append(W_u)
+            self.W_v.append(W_v)
+            self.W_c.append(W_c)
+            self.W_g.append(W_g)
+        
+        self.W_I = nn.Linear(self.embed_size, self.embed_size)
+        self.W_S = nn.Linear(self.embed_size, self.embed_size)
+
+        self.W1_A = nn.Linear(self.embed_size*2, self.embed_size)
+        self.w2_A = nn.Linear(self.embed_size, 1)
+
+        self.W1_B = nn.Linear(self.embed_size*2, self.embed_size)
+        self.w2_B = nn.Linear(self.embed_size, 1)
+
+        self.W1_M = nn.Linear(self.embed_size*2, self.embed_size)
+        self.w2_M = nn.Linear(self.embed_size, 1)
+
         self = self.to(self.device)
 
     def forward(self, batch_user, batch_item):
         """ Model feedforward procedure
         """
         # ----------------------- feed-forward process -----------------------
-        # initial embeddings (users and items)
-        U = self.user_embedding(batch_user)
-        V = self.item_embedding(batch_item)
-        e_r = self.parameter_list['embed_rate']
+        # initialize embeddings (users, items and scores)
+        U = self.parameter_list['embed_user']
+        V = self.parameter_list['embed_item']
 
-        # concatenate rating embeddings
-        U = torch.cat([U, e_r], dim=0)
-        V = torch.cat([V, e_r], dim=0)
+        e_r = self.rate_embedding(self.e_r)
 
+        user_ones = torch.full((self.num_users, self.embed_size), 1).to(self.device)
+        e_r_user = user_ones * e_r
+
+        item_ones = torch.full((self.num_items, self.embed_size), 1).to(self.device)
+        e_r_item = item_ones * e_r
+
+
+        U = torch.cat([U, e_r_user], dim=1)
+        print(U.size())
+        V = torch.cat([V, e_r_item], dim=1)
+        print(V.size())
+
+        for i in range(self.num_layer):
+            U = self.W_u[i](U)
+            U = F.relu(U)
+
+            V = self.W_v[i](V)
+            V = F.relu(V)
+        
+        print(U.size())
+        print(V.size())
         # ---------- user modeling ----------
-        A = self.w2_A(F.relu(self.W1_A(torch.cat([V, U], dim=0)))) # user-item attention coef
-        H_I = F.relu(self.W_I(torch.matmul(torch.mul(self.R, A), V)))
+        A = self.w2_A(F.relu(self.W1_A(torch.cat([V[batch_item,:], U[batch_user,:]], dim=1)))) # user-item attention coef
+        A = F.softmax(A, dim=0)
+        H_I = F.relu(self.W_I(torch.matmul(torch.mul(self.R[batch_user,:], A), V[batch_item,:])))
 
-        B = self.w2_B(F.relu(self.W1_B(torch.cat([H_I, U], dim=0)))) # social attention coef
-        H_S = F.relu(self.W_S(torch.matmul(torch.mul(self.S, B), V)))
+        B = self.w2_B(F.relu(self.W1_B(torch.cat([H_I, U[batch_user,:]], dim=1)))) # social attention coef
+        B = F.softmax(B, dim=0)
+        H_S = F.relu(self.W_S(torch.matmul(torch.mul(self.S[batch_user,:], B), V)))
 
-        H = torch.cat([H_I, H_S], dim=0) # combine user_item and social embeddings
+        H = torch.cat([H_I, H_S], dim=1) # combine user_item and social embeddings
 
         # user domain combination
         for i in range(self.num_layer):
@@ -65,74 +122,51 @@ class GraphRec(nn.Module):
             H = F.relu(H)
 
         # ---------- item modeling ----------
-        M = self.w2_M(F.relu(self.W1_M(torch.cat([U, V], dim=0)))) # social attention coef
-        Z = F.relu(self.W_M(torch.matmul(torch.mul(self.R.t(), M), U)))
+        M = self.w2_M(F.relu(self.W1_M(torch.cat([U[batch_user,:], V[batch_item,:]], dim=1)))) # social attention coef
+        M = F.softmax(M, dim=0)
+        Z = F.relu(self.W1_M(torch.matmul(torch.mul(self.R.t()[batch_item,:], M), U[batch_user,:])))
 
         # ----------------------- retrieving target users and items -----------------------
-        # retrieve batched users and items
-        batch_user_g_embeddings = H[batch_user,:]
+        # # retrieve batched users and items
+        # batch_H = H[batch_user,:]
 
-        # get positive items representations
-        batch_items_embeddings = Z[batch_item,:]
-
-        return batch_user_g_embeddings, batch_items_embeddings
-        
-    def sparse_dropout(self, A_hat, dropout_rate, noise_shape):
-        """ Node dropout.
-        """
-        
-        random_tensor = 1 - dropout_rate
-        random_tensor += torch.rand(noise_shape).to(A_hat.device)
-        dropout_mask = torch.floor(random_tensor).type(torch.bool)
-        indices = A_hat._indices()
-        values = A_hat._values()
-
-        indices = indices[:, dropout_mask]
-        values = values[dropout_mask]
-
-        out = torch.sparse.FloatTensor(indices, values, A_hat.shape).to(A_hat.device)
-        return out * (1. / (1 - dropout_rate))
-    
-    def loss_func(self, user_g_embeddings, item_g_embeddings, batch_y):
-        """ BPR loss function, compute BPR loss for ranking task in recommendation.
-        """
+        # # get positive items representations
+        # batch_H = Z[batch_item,:]
 
         # ---------- batch rating prediction ----------
-        G = torch.cat([user_g_embeddings, item_g_embeddings], dim=0)
+        G = torch.cat([H, Z], dim=1)
         for i in range(self.num_layer):
             G = self.W_g[i](G)
             G = F.relu(G)
 
+        return G
+        
+    
+    def loss_func(self, G, batch_y):
+        """ BPR loss function, compute BPR loss for ranking task in recommendation.
+        """
+
         pred_loss = (G - batch_y).norm(2).pow(2)
 
-        # compute regularizer
-        regularizer = (torch.norm(user_g_embeddings) ** 2
-                       + torch.norm(item_g_embeddings) ** 2) / 2
+        for param in self.parameters():
+            regularizer += torch.sum(torch.square(param))
 
-        emb_loss = self.reg_coef * regularizer / self.batch_size
-        
-        batch_loss = pred_loss + emb_loss
+        batch_loss = pred_loss + regularizer
 
         return batch_loss
     
-    def predict_score(self, user_g_embeddings, all_item_g_embeddings):
-        """ Predict the score of a pair of user-item interaction
-        """
-        score = torch.matmul(user_g_embeddings, all_item_g_embeddings.t())
-
-        return score
-    
-    def train_epoch(self, train_set, optimizer, num_train_batch):
+    def train_epoch(self, train_set, optimizer, num_train_batch, _):
         """ Train each epoch, return total loss of the epoch
         """
         loss = 0.
         for idx in range(num_train_batch):
-            users, pos_items, neg_items = self.data.pair_data_sampling(train_set, self.config['batch_size'])
-            user_final_embeddings, pos_item_final_embeddings = self.model(users,
-                                                                        pos_items,
-                                                                        neg_items)
+            users = train_set[(idx+1)*self.batch_size : (idx+2)*self.batch_size, 0]
+            items = train_set[(idx+1)*self.batch_size : (idx+2)*self.batch_size, 1]
+            batch_y = train_set[(idx+1)*self.batch_size : (idx+2)*self.batch_size, 2]
 
-            batch_loss = self.loss_func(user_final_embeddings, pos_item_final_embeddings)
+            scores = self.forward(users, items)
+
+            batch_loss = self.loss_func(scores, batch_y)
             optimizer.zero_grad()
             batch_loss.backward()
             optimizer.step()

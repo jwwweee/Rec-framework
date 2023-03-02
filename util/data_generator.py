@@ -117,17 +117,20 @@ class Data(object):
 
             Return: train set, valid set and test set. 
         """
+
+        dataset = np.concatenate((self.interact_graph, self.interact_weight.reshape(-1, 1)),axis=1)
+
         # set the random seed
         np.random.seed(seed)
 
         # shuffle the interacted items for each user
-        np.random.shuffle(self.interact_graph)
+        np.random.shuffle(dataset)
 
         # split train and test sets
-        train_split_ind = int(len(self.interact_graph) * train_split_rate)
+        train_split_ind = int(len(dataset) * train_split_rate)
         
-        train_set_all = self.interact_graph[ : train_split_ind]
-        test_set = self.interact_graph[train_split_ind : ]
+        train_set_all = dataset[ : train_split_ind]
+        test_set = dataset[train_split_ind : ]
 
         # split valid set from train set
         valid_split_ind = int(len(train_set_all) * valid_split_rate)

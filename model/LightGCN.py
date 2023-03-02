@@ -49,7 +49,7 @@ class LightGCN(nn.Module):
         # initialize the parameters of embeddings
         initializer = nn.init.xavier_uniform_
 
-        # initial embeddings layers
+        # initialize embeddings layers
         self.parameter_list = nn.ParameterDict({
             'embed_user': nn.Parameter(initializer(torch.empty(self.num_users,
                                                  self.embed_size))),
@@ -68,7 +68,7 @@ class LightGCN(nn.Module):
         """ Model feedforward procedure
         """
         # ----------------------- feed-forward process -----------------------
-        # initial concatenated embeddings (users and items)
+        # initialize concatenated embeddings (users and items)
         E = torch.cat([self.parameter_list['embed_user'], self.parameter_list['embed_item']], dim=0)
         
         # message propagation for each layer (both user and item phases)
