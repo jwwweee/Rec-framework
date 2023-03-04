@@ -46,7 +46,7 @@ class NGCF(nn.Module):
         self.message_dropout = eval(config['mess_dropout'])
         self.node_dropout = eval(config['node_dropout'])[0]
         self.batch_size = config['batch_size']
-        self.reg_coef = eval(config['regs'])[0]
+        self.reg_coef = config['regs']
         self.config = config
 
         # interaction adjacent matrices

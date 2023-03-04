@@ -5,17 +5,30 @@ import scipy.sparse as sp
 class Data(object):
     def __init__(self, data_path: str, name_data: str, is_social: bool=False, social_weight: bool=False, interact_weight: bool=True) -> None:
     
-        interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
         
         # init graphs, indeces start from 0
-        self.interact_graph = interact_graph[:, :2] - 1
-        
-        if interact_weight:
-            self.interact_weight = interact_graph[:, 3]
+        if name_data == 'lastfm':
+            interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter='\t')
 
-        # initialize statistics
-        self.num_users = max(self.interact_graph[:,0]) + 1
-        self.num_items = max(self.interact_graph[:,1]) + 1
+            self.interact_graph = interact_graph[:, :2]
+        
+        
+            if interact_weight:
+                self.interact_weight = interact_graph[:, 2]
+
+            # initialize statistics
+            self.num_users = max(self.interact_graph[:,0]) + 2 
+            self.num_items = max(self.interact_graph[:,1]) + 2
+            self.interact_graph = interact_graph[:, :2] - 2
+        else:
+            interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
+            if interact_weight:
+                self.interact_weight = interact_graph[:, 3]
+
+            # initialize statistics
+            self.num_users = max(self.interact_graph[:,0]) + 1
+            self.num_items = max(self.interact_graph[:,1]) + 1
+            self.interact_graph = interact_graph[:, :2] - 1
 
         self.num_train = 0
         self.num_valid = 0
@@ -23,9 +36,15 @@ class Data(object):
 
         # social graph
         if is_social:
-            social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter=',')
             
-            self.social_graph = social_graph[:, :2] - 1
+            if name_data == 'lastfm':
+                social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter='\t')
+
+                self.social_graph = social_graph[:, :2] - 2
+            else:
+                social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter=',')
+
+                self.social_graph = social_graph[:, :2] - 1
 
             if social_weight:
                 self.social_weight = social_graph[:, 3]
@@ -57,19 +76,19 @@ class Data(object):
         return self.interact_graph
 
     def retrieve_user_interacts(self, interact_graph: list) -> dict:
-        """ Retrieve the item lists of each user to a dict.
+        """ Retrieve the objects lists of each user to a dict.
 
             Return: dict of categaries and their items 
-                e.g. {user_id: [item1, item2,...],...}
+                e.g. {user_id: [object1, object2,...],...}
 
         """
         user_interacts_dict = {}
 
-        for user, item in interact_graph:
+        for user, object in interact_graph:
             if user not in user_interacts_dict:
-                user_interacts_dict[user] = [item]
+                user_interacts_dict[user] = [object]
             else:
-                user_interacts_dict[user].append(item)
+                user_interacts_dict[user].append(object)
 
         return user_interacts_dict
 
@@ -141,10 +160,10 @@ class Data(object):
         self.num_train = len(train_set)
         self.num_valid = len(valid_set)
         self.num_test = len(test_set)
-
+        
         return train_set, valid_set, test_set
     
-    def pair_data_sampling(self, train_set_dict: list, batch_size: int):
+    def pair_data_sampling(self, train_set_dict: dict, batch_size: int):
         """ Sample a batch of pair-wise data.
 
             Params:

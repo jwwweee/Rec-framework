@@ -22,7 +22,7 @@ class LightGCN(nn.Module):
         self.num_layer = len(eval(config['layer_size']))
         self.embed_size = config['embed_size']
         self.batch_size = config['batch_size']
-        self.reg_coef = eval(config['regs'])[0]
+        self.reg_coef = config['regs']
         self.config = config
 
         # interaction graph

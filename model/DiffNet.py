@@ -16,9 +16,8 @@ class DiffNet(nn.Module):
         self.embed_size = config['embed_size']
         self.layer_size = eval(config['layer_size'])
         self.batch_size = config['batch_size']
-        self.reg_coef = eval(config['regs'])[0]
+        self.reg_coef = config['regs']
         self.config = config
-
 
         # initialize graphs
         interact_D = np.array(R.sum(1))

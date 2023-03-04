@@ -10,17 +10,16 @@ import yaml
 from util.arg_parser import parse_args
 
 
-
 class Rec(object):
     def __init__(self, data, name_data, name_model, K=10, is_social=False) -> None:
         
         self.name_model = name_model
         self.is_social = is_social
-        self.EPOCH = 1000
         self.K = K
         
-        if name_model in ['GraphRec', 'SocialMF']: # other models are default as "ranking task"
-            self.task_type = input('It\'s a rating model, need to rank or rate? (type \'ranking\' or \'rating\'): ')
+        if name_model in ['SocialMF']: # other models are default as "ranking task"
+            # self.task_type = input('It\'s a rating model, need to rank or rate? (type \'ranking\' or \'rating\'): ')
+            self.task_type = 'ranking'
         else:
             self.task_type = 'ranking'
 
@@ -120,8 +119,7 @@ class Rec(object):
     def train(self, train_set, valid_set, stop_metric_type='recall'):
         """
         """
-
-        if self.name_model not in ['socialMF']:
+        if self.name_model not in ['SocialMF', 'GraphRec']:
             train_set = self.data.retrieve_user_interacts(train_set[:, :2])
             valid_set = self.data.retrieve_user_interacts(valid_set[:, :2])
             
@@ -135,9 +133,8 @@ class Rec(object):
         # initialize optimizer
         optimizer = optim.Adam(self.model.parameters(), lr=self.config['lr'])
         
-        for epoch in range(self.EPOCH):
+        for epoch in range(self.config['max_epoch']):
             epoch_time = time()
-            
 
             num_train_batch = self.data.num_train // self.config['batch_size'] + 1
 
@@ -149,13 +146,13 @@ class Rec(object):
             print(train_stat)
 
             # ----------------- Validation -----------------
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % self.config['valid_flag'] == 0:
                 valid_results = self._validate(epoch, evaluator_valid)
         
                 # ----------------- Early stopping -----------------
                 self._ealry_stop(valid_results, stop_metric_type)
 
-                if self.early_stopping_counter > 10: # validate 10 times (100 epoches), if the best metric is not updated, then early stop
+                if self.early_stopping_counter > 10: # validate 10 times, if the best metric is not updated, then early stop
                     print("Early stopping...")
                     break
             

@@ -5,4 +5,6 @@ lr: 0.0001
 mess_dropout: '[0.1,0.1,0.1]'
 node_dropout: '[0.1]'
 node_dropout_flag: 1
-regs: '[1e-5]'
+regs: 0.001
+max_epoch: 5000
+valid_flag: 10
