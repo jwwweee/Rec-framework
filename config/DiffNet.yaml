@@ -1,6 +1,6 @@
 batch_size: 1024
 embed_size: 64
-layer_size: '[64,64]'
+layer_size: '[64]'
 lr: 0.001
 regs: 0.001
 max_epoch: 5000

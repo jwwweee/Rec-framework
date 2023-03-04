@@ -49,12 +49,15 @@ class DiffNet(nn.Module):
                                                  self.embed_size)))
         })
         
+        self.user_fusion = nn.Linear(self.embed_size, self.embed_size, bias=True)
+        self.item_fusion = nn.Linear(self.embed_size, self.embed_size, bias=True)
+
         self.activation = nn.Sigmoid()
 
-        self.conv_layers = nn.ModuleList()
+        self.diff_layers = nn.ModuleList()
         for i in range(self.num_layer):
-            self.s_layer = nn.Linear(self.layer_size[i], self.layer_size[i], bias=True)
-            self.conv_layers.append(self.s_layer)
+            self.s_layer = nn.Linear(self.layer_size[i]*2, self.layer_size[i], bias=True)
+            self.diff_layers.append(self.s_layer)
         
         torch.nn.init.xavier_uniform_(self.s_layer.weight)
         torch.nn.init.constant_(self.s_layer.bias, 0)
@@ -67,13 +70,15 @@ class DiffNet(nn.Module):
         # ----------------------- feed-forward process -----------------------
         # initialize user and item embeddings (users and items)
 
-        U = self.activation(self.parameter_list['embed_user'])
-        V = self.activation(self.parameter_list['embed_item'])
+        # U = self.activation(self.user_fusion(self.parameter_list['embed_user']))
+        # V = self.activation(self.item_fusion(self.parameter_list['embed_item']))
+        U = self.parameter_list['embed_user']
+        V = self.parameter_list['embed_item']
         
         # message propagation for each layer (user social phase)
         for i in range(self.num_layer):
-            U = torch.matmul(self.S, U) + U
-            U = self.conv_layers[i](U)
+            U = torch.concat([torch.matmul(self.S, U), U], dim=1)
+            U = self.diff_layers[i](U)
             U = F.relu(U)
 
         user_g_embeddings = U + torch.matmul(self.R, V)
