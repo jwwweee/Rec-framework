@@ -1,39 +1,22 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import scipy.sparse as sp
-import numpy as np
-
 
 class DiffNet(nn.Module):
     def __init__(self, num_users, num_items, R, S, config, device):
         super(DiffNet, self).__init__()
         
-        
         self.num_users = num_users
         self.num_items = num_items
-        self.num_layer = len(eval(config['layer_size']))
+        self.num_layer = config['num_layer']
         self.embed_size = config['embed_size']
-        self.layer_size = eval(config['layer_size'])
         self.batch_size = config['batch_size']
         self.reg_coef = config['regs']
         self.config = config
 
         # initialize graphs
-        interact_D = np.array(R.sum(1))
-        interact_D = np.power(interact_D, -1).flatten()
-        interact_D[np.isinf(interact_D)] = 0.
-        interact_D = sp.diags(interact_D)
-        norm_R = interact_D.dot(R)
-
-        social_D = np.array(S.sum(1))
-        social_D = np.power(social_D, -1).flatten()
-        social_D[np.isinf(social_D)] = 0.
-        social_D = sp.diags(social_D)
-        norm_S = social_D.dot(S)
-
-        self.R = norm_R.tocoo()
-        self.S = norm_S.tocoo()
+        self.R = R.tocoo()
+        self.S = S.tocoo()
 
         self.R = self._convert_sp_mat_to_sp_tensor(self.R).to(device)
         self.S = self._convert_sp_mat_to_sp_tensor(self.S).to(device)
@@ -52,11 +35,9 @@ class DiffNet(nn.Module):
         self.user_fusion = nn.Linear(self.embed_size, self.embed_size, bias=True)
         self.item_fusion = nn.Linear(self.embed_size, self.embed_size, bias=True)
 
-        self.activation = nn.Sigmoid()
-
         self.diff_layers = nn.ModuleList()
         for i in range(self.num_layer):
-            self.s_layer = nn.Linear(self.layer_size[i]*2, self.layer_size[i], bias=True)
+            self.s_layer = nn.Linear(self.embed_size*2, self.embed_size, bias=True)
             self.diff_layers.append(self.s_layer)
         
         torch.nn.init.xavier_uniform_(self.s_layer.weight)

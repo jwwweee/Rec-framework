@@ -1,9 +1,9 @@
 batch_size: 1024
 embed_size: 64
-lr: 0.001
-u_reg: 0.1
-p_reg: 0.1
-n_reg: 0.1
-s_reg: 0.5
+lr: 0.01
+u_reg: 0.01
+p_reg: 0.01
+n_reg: 0.01
+s_reg: 0.02
 max_epoch: 50
 valid_flag: 1

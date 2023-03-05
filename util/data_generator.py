@@ -10,25 +10,25 @@ class Data(object):
         if name_data == 'lastfm':
             interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter='\t')
 
-            self.interact_graph = interact_graph[:, :2]
         
-        
+            self.interact_graph = interact_graph[:, :2] - 2
             if interact_weight:
                 self.interact_weight = interact_graph[:, 2]
 
             # initialize statistics
             self.num_users = max(self.interact_graph[:,0]) + 2 
             self.num_items = max(self.interact_graph[:,1]) + 2
-            self.interact_graph = interact_graph[:, :2] - 2
         else:
             interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
             if interact_weight:
                 self.interact_weight = interact_graph[:, 3]
 
+            self.interact_graph = interact_graph[:, :2] - 1
+
             # initialize statistics
             self.num_users = max(self.interact_graph[:,0]) + 1
             self.num_items = max(self.interact_graph[:,1]) + 1
-            self.interact_graph = interact_graph[:, :2] - 1
+            
 
         self.num_train = 0
         self.num_valid = 0
