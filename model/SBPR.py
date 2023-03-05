@@ -12,10 +12,7 @@ class SBPR(nn.Module):
         self.num_items = num_items
         self.embed_size = config['embed_size']
         self.batch_size = config['batch_size']
-        self.u_reg = config['u_reg']
-        self.p_reg = config['p_reg']
-        self.n_reg = config['n_reg']
-        self.s_reg = config['s_reg']
+        self.regs = config['regs']
         self.config = config
         self.device = device
 
@@ -115,21 +112,18 @@ class SBPR(nn.Module):
         pos_scores = torch.sum(torch.mul(user_embeddings, pos_item_embeddings), axis=1)
         neg_scores = torch.sum(torch.mul(user_embeddings, neg_item_embeddings), axis=1)
         soc_scores = torch.sum(torch.mul(user_embeddings, soc_item_embeddings), axis=1)
-        a = social_coeff + 1
-        x_uik =torch.div((pos_scores - soc_scores), (social_coeff + 1))
-        x_ukj = (pos_scores - neg_scores)
 
-        loss_ik = -1 * torch.mean(nn.LogSigmoid()(x_uik))
-        loss_kj = -1 * torch.mean(nn.LogSigmoid()(x_ukj))
+        loss_ik = -1 * torch.sum(nn.LogSigmoid()((pos_scores - soc_scores) / (social_coeff + 1)))
+        loss_kj = -1 * torch.sum(nn.LogSigmoid()((soc_scores - neg_scores)))
 
-        regularizer = (self.u_reg * torch.norm(user_embeddings) ** 2
-                       + self.p_reg * torch.norm(pos_item_embeddings) ** 2
-                       + self.n_reg * torch.norm(neg_item_embeddings) ** 2
-                       + self.s_reg * torch.norm(soc_item_embeddings) ** 2) / 2
+        regularizer = (torch.norm(user_embeddings) ** 2
+                       + torch.norm(pos_item_embeddings) ** 2
+                       + torch.norm(neg_item_embeddings) ** 2
+                       + torch.norm(soc_item_embeddings) ** 2) / 2
 
-        emb_loss = regularizer / self.batch_size
+        emb_loss = regularizer
 
-        batch_loss = loss_ik + loss_kj + emb_loss
+        batch_loss = loss_ik + loss_kj + self.regs * emb_loss
 
         return batch_loss
     
