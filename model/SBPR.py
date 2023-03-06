@@ -52,7 +52,6 @@ class SBPR(nn.Module):
 
     def _pair_data_sampling(self, user_items_dict, user_pool, batch_size: int, user_friends_dict):
         """ Sample a batch of pair-wise data.
-
             Params:
                 dataset_dict: train_set_dict
                 batch_size
