@@ -11,7 +11,7 @@ if __name__ == '__main__':
     print('Loading data...')
     prepare_start_time = time()
 
-    name_data = 'lastfm'
+    name_data = 'ciao'
     
     data = Data(data_path='data/', name_data=name_data, is_social=True) # get data
 

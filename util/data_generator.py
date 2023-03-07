@@ -13,8 +13,8 @@ class Data(object):
         self.interact_graph = interact_graph[:, :2]
 
         # initialize statistics
-        self.num_users = max(self.interact_graph[:,0])
-        self.num_items = max(self.interact_graph[:,1])
+        self.num_users = max(self.interact_graph[:,0]) + 1
+        self.num_items = max(self.interact_graph[:,1]) + 1
 
         self.num_train = 0
         self.num_valid = 0
