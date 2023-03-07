@@ -5,30 +5,16 @@ import scipy.sparse as sp
 class Data(object):
     def __init__(self, data_path: str, name_data: str, is_social: bool=False, social_weight: bool=False, interact_weight: bool=True) -> None:
     
-        
         # init graphs, indeces start from 0
-        if name_data == 'lastfm':
-            interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter='\t')
+        interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
+        if interact_weight:
+            self.interact_weight = interact_graph[:, 2]
 
-        
-            self.interact_graph = interact_graph[:, :2] - 2
-            if interact_weight:
-                self.interact_weight = interact_graph[:, 2]
+        self.interact_graph = interact_graph[:, :2]
 
-            # initialize statistics
-            self.num_users = max(self.interact_graph[:,0]) + 2 
-            self.num_items = max(self.interact_graph[:,1]) + 2
-        else:
-            interact_graph = np.loadtxt(data_path + name_data + '/rating.txt', dtype=np.int64, delimiter=',')
-            if interact_weight:
-                self.interact_weight = interact_graph[:, 3]
-
-            self.interact_graph = interact_graph[:, :2] - 1
-
-            # initialize statistics
-            self.num_users = max(self.interact_graph[:,0]) + 1
-            self.num_items = max(self.interact_graph[:,1]) + 1
-            
+        # initialize statistics
+        self.num_users = max(self.interact_graph[:,0])
+        self.num_items = max(self.interact_graph[:,1])
 
         self.num_train = 0
         self.num_valid = 0
@@ -37,17 +23,12 @@ class Data(object):
         # social graph
         if is_social:
             
-            if name_data == 'lastfm':
-                social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter='\t')
+            social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter=',')
 
-                self.social_graph = social_graph[:, :2] - 2
-            else:
-                social_graph = np.loadtxt(data_path + name_data + '/trustnetwork.txt', dtype=np.int64, delimiter=',')
-
-                self.social_graph = social_graph[:, :2] - 1
+            self.social_graph = social_graph[:, :2]
 
             if social_weight:
-                self.social_weight = social_graph[:, 3]
+                self.social_weight = social_graph[:, 2]
 
     def get_entire_dataset(self) -> list:
         """ Get entire dataset
@@ -138,6 +119,7 @@ class Data(object):
         """
 
         dataset = np.concatenate((self.interact_graph, self.interact_weight.reshape(-1, 1)),axis=1)
+        # dataset = interact_graph
 
         # set the random seed
         np.random.seed(seed)

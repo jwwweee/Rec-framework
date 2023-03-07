@@ -175,6 +175,7 @@ class Rec(object):
                             test_results['precision'], test_results['hit_ratio'],
                             test_results['ndcg'])
         print(test_stat)
+        return test_results
 
     def save_config(self, config):
         """
