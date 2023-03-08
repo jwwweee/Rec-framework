@@ -79,7 +79,7 @@ class Data(object):
 
         return self.interact_weight
 
-    def get_sparse_graph(self, graph: list, graph_type: str, weight: list=[], is_weighted_graph: bool=False):
+    def get_sparse_graph(self, num_users, num_items, graph: list, graph_type: str, weight: list=[], is_weighted_graph: bool=False):
         """ Convert graph to torch sparse graph
 
             Params:
@@ -92,9 +92,9 @@ class Data(object):
 
         """
         if graph_type == 'social':
-            sparse_graph = sp.dok_matrix((self.num_users, self.num_users), dtype=np.float32)
+            sparse_graph = sp.dok_matrix((num_users, num_users), dtype=np.float32)
         else:
-            sparse_graph = sp.dok_matrix((self.num_users, self.num_items), dtype=np.float32)
+            sparse_graph = sp.dok_matrix((num_users, num_items), dtype=np.float32)
 
         if is_weighted_graph:
             ind = 0

@@ -103,8 +103,7 @@ class Evaluator():
         pool = multiprocessing.Pool(CORES)
 
         num_evaluate_users = len(self.evaluate_users)
-        all_items = range(self.num_items)
-        
+        all_items = range(self.num_items)        
         model.eval()  
         with torch.no_grad():
 

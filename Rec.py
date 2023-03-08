@@ -16,7 +16,7 @@ class Rec(object):
         self.name_model = name_model
         self.is_social = is_social
         self.K = K
-        
+
         if name_model in ['SocialMF']: # other models are default as "ranking task"
             # self.task_type = input('It\'s a rating model, need to rank or rate? (type \'ranking\' or \'rating\'): ')
             self.task_type = 'ranking'
@@ -43,7 +43,8 @@ class Rec(object):
             self.sparse_interact_graph = sp.load_npz(interact_graph_path)
         else:
             interact_graph = self.data.get_interact_graph()
-            self.sparse_interact_graph = self.data.get_sparse_graph(interact_graph, graph_type='interact')
+            self.sparse_interact_graph = self.data.get_sparse_graph(data.num_users, data.num_items, interact_graph, graph_type='interact')
+            
             sp.save_npz(interact_graph_path, self.sparse_interact_graph)
 
         # initialize social graph if "is_social" is true
@@ -54,7 +55,8 @@ class Rec(object):
                 self.sparse_social_graph = sp.load_npz(social_graph_path)
             else:
                 social_graph = self.data.get_social_graph()
-                self.sparse_social_graph = self.data.get_sparse_graph(social_graph, graph_type='social')
+                self.sparse_social_graph = self.data.get_sparse_graph(data.num_users, data.num_items, social_graph, graph_type='social')
+                
                 sp.save_npz(social_graph_path, self.sparse_social_graph)
 
         # ----------------- initial model -----------------
@@ -73,6 +75,7 @@ class Rec(object):
         
         initial_state =  'Initialize compeleted [%.1fs]' % (time() - initial_start_time)
         print(initial_state)
+        
 
     def _ealry_stop(self, valid_results, stop_metric_type):
         """
@@ -119,7 +122,8 @@ class Rec(object):
     def train(self, train_set, valid_set, stop_metric_type='recall'):
         """
         """
-        if self.name_model not in ['SocialMF', 'GraphRec']:
+
+        if self.name_model not in ['SocialMF']:
             train_set = self.data.retrieve_user_interacts(train_set[:, :2])
             valid_set = self.data.retrieve_user_interacts(valid_set[:, :2])
             
