@@ -11,7 +11,7 @@ class Evaluator():
     def __init__(self, evaluate_set_dict, K, num_items, batch_size) -> None:
         self.K = K
         self.num_items = num_items
-        self.batch_size = batch_size * 4
+        self.batch_size = batch_size *4
         self.all_evaluate_items = list(set(itertools.chain.from_iterable(evaluate_set_dict.values())))
         self.evaluate_set_dict = evaluate_set_dict
         self.evaluate_users = list(evaluate_set_dict.keys())

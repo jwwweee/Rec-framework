@@ -108,7 +108,7 @@ class DiffNet(nn.Module):
 
         return score
     
-    def train_epoch(self, train_set, optimizer, num_train_batch, data):
+    def train_epoch(self, train_set, optimizer, lr_scheduler, num_train_batch, data):
         """ Train each epoch, return total loss of the epoch
         """
         loss = 0.
@@ -122,7 +122,7 @@ class DiffNet(nn.Module):
             optimizer.zero_grad()
             batch_loss.backward()
             optimizer.step()
-
+            lr_scheduler.step()
             loss += batch_loss
 
         return loss

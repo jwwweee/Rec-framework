@@ -8,6 +8,8 @@ import os
 from util.evaluator import *
 import yaml
 from util.arg_parser import parse_args
+from torch.optim.lr_scheduler import StepLR
+
 
 
 class Rec(object):
@@ -66,7 +68,7 @@ class Rec(object):
         model_import_state = 'from model.' + name_model + ' import ' + name_model
         exec(model_import_state) # import model
 
-        self.model_path = 'model/pt/' + name_model + '.pt'
+        self.model_path = 'pt/' + name_model + '_' + name_data + '.pt'
 
         if self.is_social:
             self.model = eval(name_model + '(self.data.num_users, self.data.num_items, self.sparse_interact_graph, self.sparse_social_graph, self.config, self.device)')
@@ -135,14 +137,16 @@ class Rec(object):
         
         # ----------------- Train -----------------
         # initialize optimizer
-        optimizer = optim.Adam(self.model.parameters(), lr=self.config['lr'])
+        optimizer = optim.Adam(self.model.parameters(), lr=self.config['max_lr'])
         
+        lr_scheduler = StepLR(optimizer, step_size=self.config['step_size'], gamma=self.config['reduce_rate'])
+
         for epoch in range(self.config['max_epoch']):
             epoch_time = time()
 
             num_train_batch = self.data.num_train // self.config['batch_size'] + 1
 
-            loss = self.model.train_epoch(train_set, optimizer, num_train_batch, self.data)
+            loss = self.model.train_epoch(train_set, optimizer, lr_scheduler, num_train_batch, self.data)
 
             # training statement
             train_stat = 'Epoch %d [%.1fs]: train loss==[%.5f]' % (
