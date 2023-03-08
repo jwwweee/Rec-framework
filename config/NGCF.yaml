@@ -1,7 +1,9 @@
 batch_size: 1024
 embed_size: 64
 layer_size: '[64,64]'
-lr: 0.0001
+max_lr: 0.0001
+step_step_size: 200
+reduce_rate: 0.1
 mess_dropout: '[0.1,0.1,0.1]'
 node_dropout: '[0.1]'
 node_dropout_flag: 1

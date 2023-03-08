@@ -1,6 +1,8 @@
 batch_size: 1024
 embed_size: 64
-lr: 0.0001
+max_lr: 0.0001
+step_step_size: 200
+reduce_rate: 0.1
 regs: 0.0001
 max_epoch: 1000
 valid_flag: 1

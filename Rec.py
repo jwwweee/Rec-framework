@@ -147,7 +147,7 @@ class Rec(object):
             num_train_batch = self.data.num_train // self.config['batch_size'] + 1
 
             loss = self.model.train_epoch(train_set, optimizer, lr_scheduler, num_train_batch, self.data)
-
+            lr_scheduler.step()
             # training statement
             train_stat = 'Epoch %d [%.1fs]: train loss==[%.5f]' % (
                 epoch, time() - epoch_time, loss)
