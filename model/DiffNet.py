@@ -92,8 +92,8 @@ class DiffNet(nn.Module):
                        + torch.norm(pos_item_g_embeddings) ** 2
                        + torch.norm(neg_item_g_embeddings) ** 2) / 2
 
-        for param in self.parameters():
-            regularizer += torch.sum(torch.square(param))
+        # for param in self.parameters():
+        #     regularizer += torch.sum(torch.square(param))
 
         emb_loss = self.reg_coef * regularizer / self.batch_size
         

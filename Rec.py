@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import StepLR
 
 
 class Rec(object):
-    def __init__(self, data, name_data, name_model, K=10, is_social=False) -> None:
+    def __init__(self, data, name_data, name_model, data_path='data/',  K=10, is_social=False) -> None:
         
         self.name_model = name_model
         self.is_social = is_social
@@ -39,7 +39,7 @@ class Rec(object):
         initial_start_time = time()
         # ----------------- initialze graphs -----------------
         # initialize interact graph
-        interact_graph_path = 'data/' + name_data + '/graph/interact_sparse_graph.npz'
+        interact_graph_path = data_path + name_data + '/graph/interact_sparse_graph.npz'
     
         if os.path.exists(interact_graph_path):
             self.sparse_interact_graph = sp.load_npz(interact_graph_path)
@@ -51,7 +51,7 @@ class Rec(object):
 
         # initialize social graph if "is_social" is true
         if self.is_social:
-            social_graph_path = 'data/' + name_data + '/graph/social_sparse_graph.npz'
+            social_graph_path = data_path + name_data + '/graph/social_sparse_graph.npz'
 
             if os.path.exists(social_graph_path):
                 self.sparse_social_graph = sp.load_npz(social_graph_path)
@@ -146,7 +146,7 @@ class Rec(object):
 
             num_train_batch = self.data.num_train // self.config['batch_size'] + 1
 
-            loss = self.model.train_epoch(train_set, optimizer, lr_scheduler, num_train_batch, self.data)
+            loss = self.model.train_epoch(train_set, optimizer, num_train_batch, self.data)
             lr_scheduler.step()
             # training statement
             train_stat = 'Epoch %d [%.1fs]: train loss==[%.5f]' % (

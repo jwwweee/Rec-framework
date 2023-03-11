@@ -30,6 +30,8 @@ class Data(object):
             if social_weight:
                 self.social_weight = social_graph[:, 2]
 
+        self.name_data = name_data
+
     def get_entire_dataset(self) -> list:
         """ Get entire dataset
 
@@ -107,7 +109,7 @@ class Data(object):
 
         return sparse_graph.tocsr()
 
-    def split_dataset(self, train_split_rate: float=0.8, valid_split_rate: float=0.1, seed: int=2023):
+    def split_dataset(self, train_split_rate: float=0.8, valid_split_rate: float=0.1, seed: int=1):
         """ Split the interactions as training, validation and testing sets.
 
             Params: 
