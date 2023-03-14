@@ -48,7 +48,7 @@ class Rec(object):
             self.sparse_interact_graph = self.data.get_sparse_graph(data.num_users, data.num_items, interact_graph, graph_type='interact')
             
             sp.save_npz(interact_graph_path, self.sparse_interact_graph)
-
+        
         # initialize social graph if "is_social" is true
         if self.is_social:
             social_graph_path = data_path + name_data + '/graph/social_sparse_graph.npz'
@@ -184,6 +184,10 @@ class Rec(object):
                             test_results['ndcg'])
         print(test_stat)
         return test_results
+    
+    def set_seed(self, seed):
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
 
     def save_config(self, config):
         """
